@@ -3,7 +3,6 @@ from supabase import create_client
 
 st.set_page_config(page_title="과제 제출", page_icon="📝", layout="centered")
 
-# ── 로그인 체크 ───────────────────────────────────────────
 if "user" not in st.session_state or not st.session_state.user:
     st.switch_page("app.py")
 if st.session_state.user["role"] != "student":
@@ -19,67 +18,46 @@ def get_supabase():
 supabase = get_supabase()
 user = st.session_state.user
 
-# ── 스타일 ────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
 * { font-family: 'Noto Sans KR', sans-serif; }
-[data-testid="stAppViewContainer"] { background: #0f0f1a; }
+[data-testid="stAppViewContainer"] { background: #f5f7fa; }
 .block-container { max-width: 660px !important; padding-top: 40px !important; }
 
 .user-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #1a1a2e;
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 28px;
-    border: 1px solid #2d2d4e;
+    display: flex; justify-content: space-between; align-items: center;
+    background: white; border-radius: 12px; padding: 16px 20px;
+    margin-bottom: 28px; border: 1px solid #e0e4f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
-.user-name { color: white; font-weight: 700; font-size: 1.1rem; }
+.user-name { color: #1a1a2e; font-weight: 700; font-size: 1.1rem; }
 .user-badge {
-    background: #4f46e5;
-    color: white;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 700;
+    background: #4f46e5; color: white;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 700;
 }
-h3 { color: white !important; }
-label { color: #aaa !important; }
+h3 { color: #1a1a2e !important; }
+label { color: #555 !important; }
 
 .stSelectbox > div > div {
-    background: #1a1a2e !important;
-    border-color: #2d2d4e !important;
-    color: white !important;
+    background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important;
 }
 .stTextArea textarea {
-    background: #1a1a2e !important;
-    border-color: #2d2d4e !important;
-    color: #e0e0e0 !important;
-    font-family: 'Courier New', monospace !important;
+    background: white !important; border-color: #dde1f0 !important;
+    color: #1a1a2e !important; font-family: 'Courier New', monospace !important;
 }
 .stTextInput input {
-    background: #1a1a2e !important;
-    border-color: #2d2d4e !important;
-    color: white !important;
+    background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important;
 }
 .stButton button {
     background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 10px !important;
-    font-weight: 700 !important;
-    font-size: 1rem !important;
-}
-.logout-btn button {
-    background: #dc3545 !important;
+    color: white !important; border: none !important;
+    border-radius: 10px !important; font-weight: 700 !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ── 헤더 ──────────────────────────────────────────────────
 col1, col2 = st.columns([4, 1])
 with col1:
     st.markdown(f"""
@@ -95,10 +73,8 @@ with col2:
         st.session_state.user = None
         st.switch_page("app.py")
 
-# ── 제출 폼 ───────────────────────────────────────────────
 st.markdown("### 📝 과제 제출")
 
-# 문제 번호 목록 생성 (1-1 ~ 9-3)
 problems = [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
 problem = st.selectbox("문제 번호", problems)
 code = st.text_area("코드 작성", height=250, placeholder="def solution():\n    ...")
@@ -120,13 +96,12 @@ if st.button("🚀 제출하기"):
         except Exception as e:
             st.error(f"제출 오류: {e}")
 
-# ── 내 제출 현황 ──────────────────────────────────────────
 st.markdown("---")
 st.markdown("### 📊 내 제출 현황")
 
 try:
     res = supabase.table("submissions") \
-        .select("submitted_at, problem, score_function, score_understanding, score_challenge, score_time, score_total") \
+        .select("submitted_at, problem, score_total") \
         .eq("name", user["name"]) \
         .order("submitted_at", desc=True) \
         .execute()
@@ -134,14 +109,16 @@ try:
     if res.data:
         for row in res.data:
             total = row["score_total"]
-            color = "#4f46e5" if total > 0 else "#555"
+            color = "#4f46e5" if total > 0 else "#aaa"
             time_str = row["submitted_at"][:16].replace("T", " ")
             st.markdown(f"""
-            <div style="background:#1a1a2e; border:1px solid #2d2d4e; border-radius:10px;
-                        padding:14px 18px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="background:white; border:1px solid #e0e4f0; border-radius:10px;
+                        padding:14px 18px; margin-bottom:10px;
+                        display:flex; justify-content:space-between; align-items:center;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
                 <div>
                     <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>
-                    <span style="color:#666; font-size:0.85rem; margin-left:12px;">{time_str}</span>
+                    <span style="color:#aaa; font-size:0.85rem; margin-left:12px;">{time_str}</span>
                 </div>
                 <div style="color:{color}; font-weight:900; font-size:1.2rem;">
                     {total if total > 0 else '채점 중'}점
