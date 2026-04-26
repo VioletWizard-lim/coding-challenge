@@ -22,6 +22,11 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
 * { font-family: 'Noto Sans KR', sans-serif; }
+
+/* 사이드바 메뉴 숨기기 */
+[data-testid="stSidebarNav"] { display: none !important; }
+section[data-testid="stSidebar"] { display: none !important; }
+
 [data-testid="stAppViewContainer"] { background: #f5f7fa; }
 .block-container { max-width: 660px !important; padding-top: 40px !important; }
 
@@ -31,25 +36,14 @@ st.markdown("""
     margin-bottom: 28px; border: 1px solid #e0e4f0;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
+.user-badge { background: #4f46e5; color: white; padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
 .user-name { color: #1a1a2e; font-weight: 700; font-size: 1.1rem; }
-.user-badge {
-    background: #4f46e5; color: white;
-    padding: 3px 10px; border-radius: 20px;
-    font-size: 0.8rem; font-weight: 700;
-}
 h3 { color: #1a1a2e !important; }
 label { color: #555 !important; }
 
-.stSelectbox > div > div {
-    background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important;
-}
-.stTextArea textarea {
-    background: white !important; border-color: #dde1f0 !important;
-    color: #1a1a2e !important; font-family: 'Courier New', monospace !important;
-}
-.stTextInput input {
-    background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important;
-}
+.stSelectbox > div > div { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
+.stTextArea textarea { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; font-family: 'Courier New', monospace !important; }
+.stTextInput input { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
 .stButton button {
     background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
     color: white !important; border: none !important;
@@ -58,7 +52,8 @@ label { color: #555 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-col1, col2 = st.columns([4, 1])
+# ── 헤더 (버튼 우측 정렬) ─────────────────────────────────
+col1, col2 = st.columns([5, 1])
 with col1:
     st.markdown(f"""
     <div class="user-header">
@@ -69,6 +64,7 @@ with col1:
     </div>
     """, unsafe_allow_html=True)
 with col2:
+    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("로그아웃"):
         st.session_state.user = None
         st.switch_page("app.py")
@@ -108,9 +104,14 @@ try:
 
     if res.data:
         for row in res.data:
-            total = row["score_total"]
-            color = "#4f46e5" if total > 0 else "#aaa"
+            total = row["score_total"] or 0
             time_str = row["submitted_at"][:16].replace("T", " ")
+            # 점수가 0이면 채점 중만 표시
+            if total > 0:
+                score_html = f'<div style="color:#4f46e5; font-weight:900; font-size:1.2rem;">{total}점</div>'
+            else:
+                score_html = f'<div style="color:#aaa; font-size:0.95rem;">채점 중</div>'
+
             st.markdown(f"""
             <div style="background:white; border:1px solid #e0e4f0; border-radius:10px;
                         padding:14px 18px; margin-bottom:10px;
@@ -120,9 +121,7 @@ try:
                     <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>
                     <span style="color:#aaa; font-size:0.85rem; margin-left:12px;">{time_str}</span>
                 </div>
-                <div style="color:{color}; font-weight:900; font-size:1.2rem;">
-                    {total if total > 0 else '채점 중'}점
-                </div>
+                {score_html}
             </div>
             """, unsafe_allow_html=True)
     else:
