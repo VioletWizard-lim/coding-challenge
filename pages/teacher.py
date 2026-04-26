@@ -53,21 +53,12 @@ label { color: #555 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── 헤더: 제목 + 버튼들 한 줄에 ──────────────────────────
-st.markdown(f"""
-<div style="display:flex; justify-content:space-between; align-items:center;
-            background:white; border-radius:12px; padding:14px 20px;
-            border:1px solid #e0e4f0; box-shadow:0 2px 8px rgba(0,0,0,0.05);
-            margin-bottom:20px;">
-    <div style="color:#1a1a2e; font-size:1.2rem; font-weight:900;">
-        👨‍🏫 {user['name']} 선생님 — 채점 관리
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns(3)
+# ── 헤더: 제목 + 버튼 한 줄 ──────────────────────────────
+col_title, col1, col2, col3 = st.columns([4, 1.2, 1.2, 1.2])
+with col_title:
+    st.markdown(f"### 👨‍🏫 {user['name']} 선생님 — 채점 관리")
 with col1:
-    if st.button("🏆 랭킹 보기", use_container_width=True):
+    if st.button("🏆 랭킹", use_container_width=True):
         st.switch_page("pages/leaderboard.py")
 with col2:
     if st.button("🔄 새로고침", use_container_width=True):
