@@ -13,64 +13,39 @@ def get_supabase():
 
 supabase = get_supabase()
 
-# ── 스타일 ────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
 * { font-family: 'Noto Sans KR', sans-serif; }
-[data-testid="stAppViewContainer"] { background: #0a0a0f; }
+[data-testid="stAppViewContainer"] { background: #f5f7fa; }
 .block-container { max-width: 700px !important; padding-top: 40px !important; }
 
 .lb-title {
-    text-align: center;
-    font-size: 2.5rem;
-    font-weight: 900;
-    color: #FFD700;
-    text-shadow: 0 0 30px rgba(255,215,0,0.4);
-    margin-bottom: 8px;
+    text-align: center; font-size: 2.5rem; font-weight: 900;
+    color: #1a1a2e; margin-bottom: 8px;
 }
-.lb-sub {
-    text-align: center;
-    color: #555;
-    font-size: 0.9rem;
-    margin-bottom: 32px;
-}
+.lb-sub { text-align: center; color: #aaa; font-size: 0.9rem; margin-bottom: 32px; }
+
 .rank-card {
-    display: flex;
-    align-items: center;
-    background: #1a1a2e;
-    border: 1px solid #2d2d4e;
-    border-radius: 14px;
-    padding: 18px 24px;
-    margin-bottom: 12px;
-    transition: transform 0.2s;
+    display: flex; align-items: center;
+    background: white; border: 1px solid #e0e4f0;
+    border-radius: 14px; padding: 18px 24px; margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
-.rank-card.gold {
-    background: linear-gradient(135deg, #2a1f00, #1a1a2e);
-    border-color: #FFD700;
-    box-shadow: 0 0 20px rgba(255,215,0,0.15);
-}
-.rank-card.silver {
-    background: linear-gradient(135deg, #1a1a1a, #1a1a2e);
-    border-color: #C0C0C0;
-}
-.rank-card.bronze {
-    background: linear-gradient(135deg, #1f0f00, #1a1a2e);
-    border-color: #CD7F32;
-}
+.rank-card.gold { border-color: #FFD700; box-shadow: 0 4px 16px rgba(255,215,0,0.2); background: #fffdf0; }
+.rank-card.silver { border-color: #C0C0C0; background: #fafafa; }
+.rank-card.bronze { border-color: #CD7F32; background: #fffaf5; }
 .rank-icon { font-size: 2rem; width: 50px; text-align: center; }
-.rank-num { font-size: 1.2rem; font-weight: 900; color: #555; width: 50px; text-align: center; }
-.rank-name { flex: 1; font-size: 1.2rem; font-weight: 700; color: white; margin-left: 16px; }
+.rank-num { font-size: 1.2rem; font-weight: 900; color: #ccc; width: 50px; text-align: center; }
+.rank-name { flex: 1; font-size: 1.2rem; font-weight: 700; color: #1a1a2e; margin-left: 16px; }
 .rank-score { font-size: 1.5rem; font-weight: 900; color: #4f46e5; }
-.rank-score.gold-score { color: #FFD700; }
-.empty-msg { text-align: center; color: #555; padding: 60px 0; font-size: 1.1rem; }
+.rank-score.gold-score { color: #d4a800; }
+.empty-msg { text-align: center; color: #aaa; padding: 60px 0; font-size: 1.1rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── 타이틀 ────────────────────────────────────────────────
 st.markdown('<div class="lb-title">🏆 실시간 코딩 랭킹 🏆</div>', unsafe_allow_html=True)
 
-# ── 데이터 로드 ───────────────────────────────────────────
 def load_leaderboard():
     try:
         res = supabase.table("submissions") \
@@ -85,7 +60,6 @@ def load_leaderboard():
             if name not in scores:
                 scores[name] = {"total": 0, "last_at": row["submitted_at"]}
             scores[name]["total"] += total
-            # 더 나중 제출 시간 기록 (동점자 정렬용)
             if row["submitted_at"] > scores[name]["last_at"]:
                 scores[name]["last_at"] = row["submitted_at"]
 
@@ -96,7 +70,6 @@ def load_leaderboard():
         st.error(f"데이터 로드 오류: {e}")
         return []
 
-# ── 자동 새로고침 ─────────────────────────────────────────
 auto_refresh = st.toggle("🔄 자동 새로고침 (30초)", value=True)
 placeholder = st.empty()
 
@@ -125,7 +98,6 @@ def render(rank_list):
 
         st.markdown(f'<div class="lb-sub">총 {len(rank_list)}명 참여 중</div>', unsafe_allow_html=True)
 
-# ── 렌더링 + 자동 새로고침 루프 ──────────────────────────
 render(load_leaderboard())
 
 if auto_refresh:
