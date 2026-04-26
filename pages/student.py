@@ -25,7 +25,7 @@ st.markdown("""
 [data-testid="stSidebarNav"] { display: none !important; }
 section[data-testid="stSidebar"] { display: none !important; }
 [data-testid="stAppViewContainer"] { background: #f5f7fa; }
-.block-container { max-width: 660px !important; padding-top: 30px !important; }
+.block-container { max-width: 660px !important; padding-top: 60px !important; }
 h3 { color: #1a1a2e !important; }
 label { color: #555 !important; }
 .stSelectbox > div > div { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
