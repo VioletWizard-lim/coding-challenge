@@ -22,6 +22,11 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
 * { font-family: 'Noto Sans KR', sans-serif; }
+
+/* 사이드바 메뉴 숨기기 */
+[data-testid="stSidebarNav"] { display: none !important; }
+section[data-testid="stSidebar"] { display: none !important; }
+
 [data-testid="stAppViewContainer"] { background: #f5f7fa; }
 .block-container { padding-top: 30px !important; }
 h3 { color: #1a1a2e !important; }
@@ -43,16 +48,15 @@ label { color: #555 !important; }
 .sub-problem { color: #4f46e5; font-weight: 700; margin-left: 10px; }
 .sub-time { color: #aaa; font-size: 0.85rem; margin-left: 10px; }
 .code-block {
-    background: #f8f9fc; border: 1px solid #e0e4f0;
-    border-radius: 8px; padding: 12px;
-    font-family: 'Courier New', monospace; font-size: 0.85rem;
-    color: #4f46e5; white-space: pre-wrap;
-    max-height: 150px; overflow-y: auto; margin: 10px 0;
+    background: #f8f9fc; border: 1px solid #e0e4f0; border-radius: 8px; padding: 12px;
+    font-family: 'Courier New', monospace; font-size: 0.85rem; color: #4f46e5;
+    white-space: pre-wrap; max-height: 150px; overflow-y: auto; margin: 10px 0;
 }
 .score-total { font-size: 1.4rem; font-weight: 900; color: #4f46e5; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── 헤더 ──────────────────────────────────────────────────
 col1, col2, col3 = st.columns([4, 1, 1])
 with col1:
     st.markdown(f"### 👨‍🏫 {user['name']} 선생님 — 채점 관리")
@@ -60,7 +64,7 @@ with col2:
     if st.button("🏆 랭킹 보기"):
         st.switch_page("pages/leaderboard.py")
 with col3:
-    if st.button("로그아웃"):
+    if st.button("🚪 로그아웃"):
         st.session_state.user = None
         st.switch_page("app.py")
 
@@ -68,6 +72,9 @@ st.markdown("---")
 
 tab_grade, tab_teacher = st.tabs(["📋 채점 관리", "👤 교사 추가"])
 
+# ══════════════════════════════════════════════════════════
+# 탭 1: 채점 관리 (전체 학생)
+# ══════════════════════════════════════════════════════════
 with tab_grade:
     col_search, col_refresh = st.columns([4, 1])
     with col_search:
@@ -77,18 +84,10 @@ with tab_grade:
         refresh = st.button("🔄 새로고침")
 
     @st.cache_data(ttl=10)
-    def load_submissions(teacher_id):
-        students = supabase.table("users") \
-            .select("name") \
-            .eq("teacher_id", teacher_id) \
-            .eq("role", "student") \
-            .execute()
-        student_names = [s["name"] for s in students.data]
-        if not student_names:
-            return []
+    def load_submissions():
+        # 전체 학생 제출 조회
         res = supabase.table("submissions") \
             .select("*") \
-            .in_("name", student_names) \
             .order("submitted_at", desc=True) \
             .execute()
         return res.data
@@ -97,7 +96,7 @@ with tab_grade:
         st.cache_data.clear()
 
     try:
-        data = load_submissions(user["id"])
+        data = load_submissions()
     except Exception as e:
         st.error(f"데이터 로드 오류: {e}")
         data = []
@@ -105,7 +104,7 @@ with tab_grade:
     if search:
         data = [row for row in data if search.lower() in row["name"].lower()]
 
-    st.markdown(f"**총 {len(data)}건** (내 반 학생 제출)")
+    st.markdown(f"**총 {len(data)}건**")
 
     for row in data:
         row_id = row["id"]
@@ -163,6 +162,9 @@ with tab_grade:
                             st.error(f"삭제 오류: {e}")
             st.markdown("---")
 
+# ══════════════════════════════════════════════════════════
+# 탭 2: 교사 추가
+# ══════════════════════════════════════════════════════════
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
     with st.container():
@@ -193,8 +195,7 @@ with tab_teacher:
         for t in teachers.data:
             st.markdown(f"""
             <div style="background:white; border:1px solid #e0e4f0; border-radius:8px;
-                        padding:12px 18px; margin-bottom:8px;
-                        box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+                        padding:12px 18px; margin-bottom:8px; box-shadow:0 2px 6px rgba(0,0,0,0.04);">
                 <span style="color:#4f46e5; font-weight:700;">{t['id']}</span>
                 <span style="color:#1a1a2e; margin-left:16px;">{t['name']} 선생님</span>
             </div>
