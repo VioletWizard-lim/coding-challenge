@@ -1,0 +1,154 @@
+import streamlit as st
+from supabase import create_client
+
+st.set_page_config(page_title="과제 제출", page_icon="📝", layout="centered")
+
+# ── 로그인 체크 ───────────────────────────────────────────
+if "user" not in st.session_state or not st.session_state.user:
+    st.switch_page("app.py")
+if st.session_state.user["role"] != "student":
+    st.switch_page("app.py")
+
+@st.cache_resource
+def get_supabase():
+    return create_client(
+        st.secrets["supabase"]["url"],
+        st.secrets["supabase"]["key"]
+    )
+
+supabase = get_supabase()
+user = st.session_state.user
+
+# ── 스타일 ────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+* { font-family: 'Noto Sans KR', sans-serif; }
+[data-testid="stAppViewContainer"] { background: #0f0f1a; }
+.block-container { max-width: 660px !important; padding-top: 40px !important; }
+
+.user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    border: 1px solid #2d2d4e;
+}
+.user-name { color: white; font-weight: 700; font-size: 1.1rem; }
+.user-badge {
+    background: #4f46e5;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+h3 { color: white !important; }
+label { color: #aaa !important; }
+
+.stSelectbox > div > div {
+    background: #1a1a2e !important;
+    border-color: #2d2d4e !important;
+    color: white !important;
+}
+.stTextArea textarea {
+    background: #1a1a2e !important;
+    border-color: #2d2d4e !important;
+    color: #e0e0e0 !important;
+    font-family: 'Courier New', monospace !important;
+}
+.stTextInput input {
+    background: #1a1a2e !important;
+    border-color: #2d2d4e !important;
+    color: white !important;
+}
+.stButton button {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+}
+.logout-btn button {
+    background: #dc3545 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── 헤더 ──────────────────────────────────────────────────
+col1, col2 = st.columns([4, 1])
+with col1:
+    st.markdown(f"""
+    <div class="user-header">
+        <div>
+            <span class="user-badge">학생</span>
+            <span class="user-name" style="margin-left:10px;">{user['name']}님 환영합니다 👋</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+with col2:
+    if st.button("로그아웃"):
+        st.session_state.user = None
+        st.switch_page("app.py")
+
+# ── 제출 폼 ───────────────────────────────────────────────
+st.markdown("### 📝 과제 제출")
+
+# 문제 번호 목록 생성 (1-1 ~ 9-3)
+problems = [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
+problem = st.selectbox("문제 번호", problems)
+code = st.text_area("코드 작성", height=250, placeholder="def solution():\n    ...")
+desc = st.text_input("설명 (선택)", placeholder="코드에 대한 간단한 설명을 입력하세요")
+
+if st.button("🚀 제출하기"):
+    if not code.strip():
+        st.warning("코드를 입력하세요!")
+    else:
+        try:
+            supabase.table("submissions").insert({
+                "name": user["name"],
+                "problem": problem,
+                "code": code,
+                "description": desc
+            }).execute()
+            st.success(f"✅ 제출 완료! ({problem})")
+            st.balloons()
+        except Exception as e:
+            st.error(f"제출 오류: {e}")
+
+# ── 내 제출 현황 ──────────────────────────────────────────
+st.markdown("---")
+st.markdown("### 📊 내 제출 현황")
+
+try:
+    res = supabase.table("submissions") \
+        .select("submitted_at, problem, score_function, score_understanding, score_challenge, score_time, score_total") \
+        .eq("name", user["name"]) \
+        .order("submitted_at", desc=True) \
+        .execute()
+
+    if res.data:
+        for row in res.data:
+            total = row["score_total"]
+            color = "#4f46e5" if total > 0 else "#555"
+            time_str = row["submitted_at"][:16].replace("T", " ")
+            st.markdown(f"""
+            <div style="background:#1a1a2e; border:1px solid #2d2d4e; border-radius:10px;
+                        padding:14px 18px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>
+                    <span style="color:#666; font-size:0.85rem; margin-left:12px;">{time_str}</span>
+                </div>
+                <div style="color:{color}; font-weight:900; font-size:1.2rem;">
+                    {total if total > 0 else '채점 중'}점
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("아직 제출한 과제가 없어요.")
+except Exception as e:
+    st.error(f"데이터 로드 오류: {e}")
