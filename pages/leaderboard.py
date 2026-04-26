@@ -16,6 +16,10 @@ supabase = get_supabase()
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+/* 사이드바 메뉴 숨기기 */
+[data-testid="stSidebarNav"] { display: none !important; }
+section[data-testid="stSidebar"] { display: none !important; }
+
 * { font-family: 'Noto Sans KR', sans-serif; }
 [data-testid="stAppViewContainer"] { background: #f5f7fa; }
 .block-container { max-width: 700px !important; padding-top: 40px !important; }
