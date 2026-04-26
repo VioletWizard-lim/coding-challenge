@@ -44,6 +44,10 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
 * { font-family: 'Noto Sans KR', sans-serif; }
 
+/* 왼쪽 사이드바 메뉴 완전 숨기기 */
+[data-testid="stSidebarNav"] { display: none !important; }
+section[data-testid="stSidebar"] { display: none !important; }
+
 [data-testid="stAppViewContainer"] { background: #f5f7fa; }
 .block-container { max-width: 440px !important; padding-top: 80px !important; }
 
@@ -54,32 +58,23 @@ st.markdown("""
 .stTabs [data-baseweb="tab-list"] {
     gap: 0; background: #e8eaf0; border-radius: 10px; padding: 4px;
 }
-.stTabs [data-baseweb="tab"] {
-    flex: 1; border-radius: 8px; color: #666; font-weight: 700;
-}
-.stTabs [aria-selected="true"] {
-    background: #4f46e5 !important; color: white !important;
-}
+.stTabs [data-baseweb="tab"] { flex: 1; border-radius: 8px; color: #666; font-weight: 700; }
+.stTabs [aria-selected="true"] { background: #4f46e5 !important; color: white !important; }
 
 .stTextInput input {
-    background: white !important;
-    border: 1px solid #dde1f0 !important;
-    color: #1a1a2e !important;
-    border-radius: 8px !important;
+    background: white !important; border: 1px solid #dde1f0 !important;
+    color: #1a1a2e !important; border-radius: 8px !important;
 }
 .stTextInput input:focus {
     border-color: #4f46e5 !important;
     box-shadow: 0 0 0 2px rgba(79,70,229,0.15) !important;
 }
-
 .stButton button {
     background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
     color: white !important; border: none !important;
     border-radius: 10px !important; font-weight: 700 !important;
-    font-size: 1rem !important; padding: 0.6rem !important;
-    width: 100% !important;
+    font-size: 1rem !important; padding: 0.6rem !important; width: 100% !important;
 }
-.stButton button:hover { opacity: 0.85; }
 label { color: #555 !important; font-size: 0.85rem !important; }
 </style>
 """, unsafe_allow_html=True)
