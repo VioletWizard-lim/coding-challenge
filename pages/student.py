@@ -39,7 +39,6 @@ label { color: #555 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── 헤더 ──────────────────────────────────────────────────
 st.markdown(f"""
 <div style="display:flex; justify-content:space-between; align-items:center;
             background:white; border-radius:12px; padding:14px 20px;
@@ -52,7 +51,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 버튼 3개 한 줄
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🏆 랭킹 보기", use_container_width=True):
@@ -81,7 +79,9 @@ if st.button("🚀 제출하기", use_container_width=True):
                 "name": user["name"],
                 "problem": problem,
                 "code": code,
-                "description": desc
+                "description": desc,
+                "grade": user.get("grade"),
+                "class": user.get("class"),
             }).execute()
             st.success(f"✅ 제출 완료! ({problem})")
             st.balloons()
