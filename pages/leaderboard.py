@@ -16,7 +16,6 @@ supabase = get_supabase()
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
-/* 사이드바 메뉴 숨기기 */
 [data-testid="stSidebarNav"] { display: none !important; }
 section[data-testid="stSidebar"] { display: none !important; }
 
@@ -50,12 +49,18 @@ section[data-testid="stSidebar"] { display: none !important; }
 
 st.markdown('<div class="lb-title">🏆 실시간 코딩 랭킹 🏆</div>', unsafe_allow_html=True)
 
-def load_leaderboard():
+def load_leaderboard(grade=None, class_=None):
     try:
-        res = supabase.table("submissions") \
-            .select("name, score_total, submitted_at") \
-            .gt("score_total", 0) \
-            .execute()
+        query = supabase.table("submissions") \
+            .select("name, score_total, submitted_at, grade, class") \
+            .gt("score_total", 0)
+
+        if grade:
+            query = query.eq("grade", grade)
+        if class_:
+            query = query.eq("class", class_)
+
+        res = query.execute()
 
         scores = {}
         for row in res.data:
@@ -74,16 +79,45 @@ def load_leaderboard():
         st.error(f"데이터 로드 오류: {e}")
         return []
 
+def load_classes():
+    try:
+        res = supabase.table("submissions") \
+            .select("grade, class") \
+            .gt("score_total", 0) \
+            .execute()
+        seen = set()
+        result = []
+        for row in res.data:
+            g = row.get("grade") or ""
+            c = row.get("class") or ""
+            if g and c:
+                key = (g, c)
+                if key not in seen:
+                    seen.add(key)
+                    result.append(key)
+        result.sort()
+        return result
+    except:
+        return []
+
 col1, col2 = st.columns(2)
 with col1:
     if st.button("🏠 메인으로", use_container_width=True):
         st.switch_page("app.py")
 with col2:
     auto_refresh = st.toggle("🔄 자동 새로고침 (30초)", value=True)
+
+user = st.session_state.get("user")
+user_grade = user.get("grade") if user and user.get("role") == "student" else None
+user_class = user.get("class") if user and user.get("role") == "student" else None
+
 placeholder = st.empty()
 
-def render(rank_list):
+def render(rank_list, subtitle=""):
     with placeholder.container():
+        if subtitle:
+            st.markdown(f'<div class="lb-sub">{subtitle}</div>', unsafe_allow_html=True)
+
         if not rank_list:
             st.markdown('<div class="empty-msg">아직 점수가 없어요 😊</div>', unsafe_allow_html=True)
             return
@@ -107,7 +141,24 @@ def render(rank_list):
 
         st.markdown(f'<div class="lb-sub">총 {len(rank_list)}명 참여 중</div>', unsafe_allow_html=True)
 
-render(load_leaderboard())
+if user_grade and user_class:
+    tab1, tab2 = st.tabs([f"🏫 {user_grade}학년 {user_class}반 랭킹", "🌍 전체 랭킹"])
+    with tab1:
+        render(load_leaderboard(grade=user_grade, class_=user_class),
+               subtitle=f"{user_grade}학년 {user_class}반 학생들의 랭킹")
+    with tab2:
+        render(load_leaderboard(), subtitle="전체 학생 랭킹")
+else:
+    classes_list = load_classes()
+    options = ["전체"] + [f"{g}학년 {c}반" for g, c in classes_list]
+    selected = st.selectbox("반 선택", options, label_visibility="collapsed")
+
+    if selected == "전체":
+        render(load_leaderboard(), subtitle="전체 학생 랭킹")
+    else:
+        idx = options.index(selected) - 1
+        g, c = classes_list[idx]
+        render(load_leaderboard(grade=g, class_=c), subtitle=f"{g}학년 {c}반 학생들의 랭킹")
 
 if auto_refresh:
     time.sleep(30)
