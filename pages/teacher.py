@@ -127,10 +127,12 @@ def render_grading(data, key_prefix=""):
             class_info = f'<span style="background:#e8f4fd; color:#2563eb; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700; margin-left:8px;">{row["grade"]}학년 {row["class"]}반</span>'
 
         with st.container():
+            wrong_reason = row.get("wrong_reason") or ""
+            wrong_badge = f'<span style="background:#fee2e2; color:#dc2626; padding:2px 10px; border-radius:12px; font-size:0.8rem; font-weight:700; margin-left:8px;">⚠️ 오답: {wrong_reason}</span>' if wrong_reason else ""
             st.markdown(f"""
             <div class="sub-card">
                 <div>
-                    <span class="sub-name">{row['name']}</span>{class_info}
+                    <span class="sub-name">{row['name']}</span>{class_info}{wrong_badge}
                     <span class="sub-problem">{row['problem']}</span>
                     <span class="sub-time">{time_str}</span>
                 </div>
@@ -139,7 +141,7 @@ def render_grading(data, key_prefix=""):
             </div>
             """, unsafe_allow_html=True)
 
-            c1, c2, c3, c4, c5, c6 = st.columns([2, 2, 2, 2, 1.5, 1])
+            c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 1.5])
             with c1:
                 s1 = st.number_input("기능(40)", 0, 40, int(row.get("score_function") or 0), key=f"s1_{key_prefix}_{row_id}")
             with c2:
@@ -151,31 +153,41 @@ def render_grading(data, key_prefix=""):
             with c5:
                 total = s1 + s2 + s3 + s4
                 st.markdown(f"<br><div class='score-total'>합계: {total}점</div>", unsafe_allow_html=True)
-            with c6:
-                st.markdown("<br>", unsafe_allow_html=True)
-                save_col, del_col = st.columns(2)
-                with save_col:
-                    if st.button("저장", key=f"save_{key_prefix}_{row_id}"):
-                        try:
-                            supabase.table("submissions").update({
-                                "score_function": s1,
-                                "score_understanding": s2,
-                                "score_challenge": s3,
-                                "score_time": s4,
-                                "score_total": total
-                            }).eq("id", row_id).execute()
-                            st.cache_data.clear()
-                            st.toast(f"✅ {row['name']} — {row['problem']} 저장 완료! ({total}점)")
-                        except Exception as e:
-                            st.toast(f"❌ 저장 오류: {e}")
-                with del_col:
-                    if st.button("삭제", key=f"del_{key_prefix}_{row_id}"):
-                        try:
-                            supabase.table("submissions").delete().eq("id", row_id).execute()
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"삭제 오류: {e}")
+
+            w1, w2, w3, w4 = st.columns([3, 1, 1, 1])
+            with w1:
+                wrong_input = st.text_input("오답 이유", value=wrong_reason, placeholder="오답 이유를 입력하세요", key=f"wrong_{key_prefix}_{row_id}", label_visibility="collapsed")
+            with w2:
+                if st.button("⚠️ 오답처리", key=f"wrong_btn_{key_prefix}_{row_id}", use_container_width=True):
+                    try:
+                        supabase.table("submissions").update({"wrong_reason": wrong_input}).eq("id", row_id).execute()
+                        st.cache_data.clear()
+                        st.toast(f"⚠️ {row['name']} — {row['problem']} 오답처리 완료!")
+                        st.rerun()
+                    except Exception as e:
+                        st.toast(f"❌ 오류: {e}")
+            with w3:
+                if st.button("저장", key=f"save_{key_prefix}_{row_id}", use_container_width=True):
+                    try:
+                        supabase.table("submissions").update({
+                            "score_function": s1,
+                            "score_understanding": s2,
+                            "score_challenge": s3,
+                            "score_time": s4,
+                            "score_total": total
+                        }).eq("id", row_id).execute()
+                        st.cache_data.clear()
+                        st.toast(f"✅ {row['name']} — {row['problem']} 저장 완료! ({total}점)")
+                    except Exception as e:
+                        st.toast(f"❌ 저장 오류: {e}")
+            with w4:
+                if st.button("삭제", key=f"del_{key_prefix}_{row_id}", use_container_width=True):
+                    try:
+                        supabase.table("submissions").delete().eq("id", row_id).execute()
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"삭제 오류: {e}")
             st.markdown("---")
 
 tab_filtered, tab_all, tab_student, tab_teacher = st.tabs(["🏫 반별/문제별 채점", "📋 전체 목록", "🔍 학생별 코드 확인", "👤 교사 추가"])
