@@ -101,10 +101,10 @@ def render_grading(data, key_prefix=""):
                 count = 0
                 for row in data:
                     rid = row["id"]
-                    s1 = st.session_state.get(f"s1_{rid}", int(row.get("score_function") or 0))
-                    s2 = st.session_state.get(f"s2_{rid}", int(row.get("score_understanding") or 0))
-                    s3 = st.session_state.get(f"s3_{rid}", int(row.get("score_challenge") or 0))
-                    s4 = st.session_state.get(f"s4_{rid}", int(row.get("score_time") or 0))
+                    s1 = st.session_state.get(f"s1_{key_prefix}_{rid}", int(row.get("score_function") or 0))
+                    s2 = st.session_state.get(f"s2_{key_prefix}_{rid}", int(row.get("score_understanding") or 0))
+                    s3 = st.session_state.get(f"s3_{key_prefix}_{rid}", int(row.get("score_challenge") or 0))
+                    s4 = st.session_state.get(f"s4_{key_prefix}_{rid}", int(row.get("score_time") or 0))
                     total = s1 + s2 + s3 + s4
                     supabase.table("submissions").update({
                         "score_function": s1, "score_understanding": s2,
@@ -141,13 +141,13 @@ def render_grading(data, key_prefix=""):
 
             c1, c2, c3, c4, c5, c6 = st.columns([2, 2, 2, 2, 1.5, 1])
             with c1:
-                s1 = st.number_input("기능(40)", 0, 40, int(row.get("score_function") or 0), key=f"s1_{row_id}")
+                s1 = st.number_input("기능(40)", 0, 40, int(row.get("score_function") or 0), key=f"s1_{key_prefix}_{row_id}")
             with c2:
-                s2 = st.number_input("이해도(30)", 0, 30, int(row.get("score_understanding") or 0), key=f"s2_{row_id}")
+                s2 = st.number_input("이해도(30)", 0, 30, int(row.get("score_understanding") or 0), key=f"s2_{key_prefix}_{row_id}")
             with c3:
-                s3 = st.number_input("도전(20)", 0, 20, int(row.get("score_challenge") or 0), key=f"s3_{row_id}")
+                s3 = st.number_input("도전(20)", 0, 20, int(row.get("score_challenge") or 0), key=f"s3_{key_prefix}_{row_id}")
             with c4:
-                s4 = st.number_input("제출시간(10)", 0, 10, int(row.get("score_time") or 0), key=f"s4_{row_id}")
+                s4 = st.number_input("제출시간(10)", 0, 10, int(row.get("score_time") or 0), key=f"s4_{key_prefix}_{row_id}")
             with c5:
                 total = s1 + s2 + s3 + s4
                 st.markdown(f"<br><div class='score-total'>합계: {total}점</div>", unsafe_allow_html=True)
@@ -155,7 +155,7 @@ def render_grading(data, key_prefix=""):
                 st.markdown("<br>", unsafe_allow_html=True)
                 save_col, del_col = st.columns(2)
                 with save_col:
-                    if st.button("저장", key=f"save_{row_id}"):
+                    if st.button("저장", key=f"save_{key_prefix}_{row_id}"):
                         try:
                             supabase.table("submissions").update({
                                 "score_function": s1,
@@ -169,7 +169,7 @@ def render_grading(data, key_prefix=""):
                         except Exception as e:
                             st.toast(f"❌ 저장 오류: {e}")
                 with del_col:
-                    if st.button("삭제", key=f"del_{row_id}"):
+                    if st.button("삭제", key=f"del_{key_prefix}_{row_id}"):
                         try:
                             supabase.table("submissions").delete().eq("id", row_id).execute()
                             st.cache_data.clear()
