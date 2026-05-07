@@ -135,12 +135,30 @@ try:
 
             with st.expander("📊 상세 점수 및 코드 보기"):
                 if is_graded:
-                    sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-                    sc1.metric("기능", f"{row.get('score_function') or 0}/40")
-                    sc2.metric("이해도", f"{row.get('score_understanding') or 0}/30")
-                    sc3.metric("도전", f"{row.get('score_challenge') or 0}/20")
-                    sc4.metric("제출시간", f"{row.get('score_time') or 0}/10")
-                    sc5.metric("합계", f"{total}/100")
+                    st.markdown(f"""
+                    <div style="display:flex; gap:12px; margin-bottom:10px;">
+                        <div style="background:#f5f7fa; border-radius:8px; padding:8px 14px; text-align:center;">
+                            <div style="color:#888; font-size:0.75rem;">기능</div>
+                            <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_function') or 0}<span style="color:#bbb; font-size:0.8rem;">/40</span></div>
+                        </div>
+                        <div style="background:#f5f7fa; border-radius:8px; padding:8px 14px; text-align:center;">
+                            <div style="color:#888; font-size:0.75rem;">이해도</div>
+                            <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_understanding') or 0}<span style="color:#bbb; font-size:0.8rem;">/30</span></div>
+                        </div>
+                        <div style="background:#f5f7fa; border-radius:8px; padding:8px 14px; text-align:center;">
+                            <div style="color:#888; font-size:0.75rem;">도전</div>
+                            <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_challenge') or 0}<span style="color:#bbb; font-size:0.8rem;">/20</span></div>
+                        </div>
+                        <div style="background:#f5f7fa; border-radius:8px; padding:8px 14px; text-align:center;">
+                            <div style="color:#888; font-size:0.75rem;">제출시간</div>
+                            <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_time') or 0}<span style="color:#bbb; font-size:0.8rem;">/10</span></div>
+                        </div>
+                        <div style="background:#4f46e5; border-radius:8px; padding:8px 14px; text-align:center;">
+                            <div style="color:#c7d2fe; font-size:0.75rem;">합계</div>
+                            <div style="color:white; font-weight:900; font-size:1rem;">{total}<span style="color:#c7d2fe; font-size:0.8rem;">/100</span></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     if row.get("feedback"):
                         st.warning(f"💬 선생님 피드백: {row['feedback']}")
                     if row.get("wrong_reason"):
