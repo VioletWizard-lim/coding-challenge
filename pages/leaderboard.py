@@ -108,16 +108,25 @@ def load_classes():
     except:
         return []
 
+user = st.session_state.get("user")
+user_grade = user.get("grade") if user and user.get("role") == "student" else None
+user_class = user.get("class") if user and user.get("role") == "student" else None
+
+# ── 반 선택 / 탭 (타이틀 바로 아래) ──────────────────────
+if user_grade and user_class:
+    tab1, tab2 = st.tabs([f"🏫 {user_grade}학년 {user_class}반 랭킹", "🌍 전체 랭킹"])
+else:
+    classes_list = load_classes()
+    options = ["전체"] + [f"{g}학년 {c}반" for g, c in classes_list]
+    selected = st.selectbox("반 선택", options, label_visibility="collapsed")
+
+# ── 메인으로 / 자동 새로고침 ──────────────────────────────
 col1, col2 = st.columns(2)
 with col1:
     if st.button("🏠 메인으로", use_container_width=True):
         st.switch_page("app.py")
 with col2:
     auto_refresh = st.toggle("🔄 자동 새로고침 (30초)", value=True)
-
-user = st.session_state.get("user")
-user_grade = user.get("grade") if user and user.get("role") == "student" else None
-user_class = user.get("class") if user and user.get("role") == "student" else None
 
 placeholder = st.empty()
 
@@ -150,17 +159,12 @@ def render(rank_list, subtitle=""):
         st.markdown(f'<div class="lb-sub">총 {len(rank_list)}명 참여 중</div>', unsafe_allow_html=True)
 
 if user_grade and user_class:
-    tab1, tab2 = st.tabs([f"🏫 {user_grade}학년 {user_class}반 랭킹", "🌍 전체 랭킹"])
     with tab1:
         render(load_leaderboard(grade=user_grade, class_=user_class),
                subtitle=f"{user_grade}학년 {user_class}반 학생들의 랭킹")
     with tab2:
         render(load_leaderboard(), subtitle="전체 학생 랭킹")
 else:
-    classes_list = load_classes()
-    options = ["전체"] + [f"{g}학년 {c}반" for g, c in classes_list]
-    selected = st.selectbox("반 선택", options, label_visibility="collapsed")
-
     if selected == "전체":
         render(load_leaderboard(), subtitle="전체 학생 랭킹")
     else:
