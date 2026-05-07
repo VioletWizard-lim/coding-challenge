@@ -107,7 +107,7 @@ st.markdown("### 📊 내 제출 현황")
 
 try:
     res = supabase.table("submissions") \
-        .select("id, submitted_at, problem, score_total, code, description") \
+        .select("id, submitted_at, problem, score_total, score_function, score_understanding, score_challenge, score_time, feedback, wrong_reason, code, description") \
         .eq("name", user["name"]) \
         .order("submitted_at", desc=True) \
         .execute()
@@ -116,10 +116,9 @@ try:
         for row in res.data:
             total = row["score_total"] or 0
             time_str = to_kst(row["submitted_at"])
-            if total > 0:
-                score_html = f'<div style="color:#4f46e5; font-weight:900; font-size:1.2rem;">{total}점</div>'
-            else:
-                score_html = '<div style="color:#aaa; font-size:0.95rem;">채점 중</div>'
+            is_graded = total > 0
+            score_html = f'<div style="color:#4f46e5; font-weight:900; font-size:1.2rem;">{total}점</div>' if is_graded else '<div style="color:#aaa; font-size:0.95rem;">채점 중</div>'
+            wrong_badge = f'<span style="background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; margin-left:8px;">⚠️ 오답</span>' if row.get("wrong_reason") else ""
 
             st.markdown(f"""
             <div style="background:white; border:1px solid #e0e4f0; border-radius:10px;
@@ -127,16 +126,27 @@ try:
                         display:flex; justify-content:space-between; align-items:center;
                         box-shadow:0 2px 6px rgba(0,0,0,0.04);">
                 <div>
-                    <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>
+                    <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>{wrong_badge}
                     <span style="color:#aaa; font-size:0.85rem; margin-left:12px;">{time_str}</span>
                 </div>
                 {score_html}
             </div>
             """, unsafe_allow_html=True)
 
-            with st.expander("📄 제출 코드 보기"):
+            with st.expander("📊 상세 점수 및 코드 보기"):
+                if is_graded:
+                    sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+                    sc1.metric("기능", f"{row.get('score_function') or 0}/40")
+                    sc2.metric("이해도", f"{row.get('score_understanding') or 0}/30")
+                    sc3.metric("도전", f"{row.get('score_challenge') or 0}/20")
+                    sc4.metric("제출시간", f"{row.get('score_time') or 0}/10")
+                    sc5.metric("합계", f"{total}/100")
+                    if row.get("feedback"):
+                        st.warning(f"💬 선생님 피드백: {row['feedback']}")
+                    if row.get("wrong_reason"):
+                        st.error(f"⚠️ 오답 이유: {row['wrong_reason']}")
                 if row.get("description"):
-                    st.caption(f"설명: {row['description']}")
+                    st.caption(f"내 설명: {row['description']}")
                 st.code(row.get("code") or "", language="python")
     else:
         st.info("아직 제출한 과제가 없어요.")

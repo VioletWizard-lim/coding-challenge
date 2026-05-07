@@ -154,7 +154,32 @@ def render_grading(data, key_prefix=""):
                 total = s1 + s2 + s3 + s4
                 st.markdown(f"<br><div class='score-total'>합계: {total}점</div>", unsafe_allow_html=True)
 
-            w1, w2, w3, w4 = st.columns([3, 1, 1, 1])
+            f1, f2, f3 = st.columns([4, 1, 1])
+            with f1:
+                feedback_input = st.text_input("감점 이유", value=row.get("feedback") or "", placeholder="감점 이유를 입력하세요 (학생에게 표시됩니다)", key=f"feedback_{key_prefix}_{row_id}", label_visibility="collapsed")
+            with f2:
+                if st.button("저장", key=f"save_{key_prefix}_{row_id}", use_container_width=True):
+                    try:
+                        supabase.table("submissions").update({
+                            "score_function": s1, "score_understanding": s2,
+                            "score_challenge": s3, "score_time": s4,
+                            "score_total": total, "feedback": feedback_input
+                        }).eq("id", row_id).execute()
+                        st.cache_data.clear()
+                        st.toast(f"✅ {row['name']} — {row['problem']} 저장 완료! ({total}점)")
+                        st.rerun()
+                    except Exception as e:
+                        st.toast(f"❌ 저장 오류: {e}")
+            with f3:
+                if st.button("삭제", key=f"del_{key_prefix}_{row_id}", use_container_width=True):
+                    try:
+                        supabase.table("submissions").delete().eq("id", row_id).execute()
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"삭제 오류: {e}")
+
+            w1, w2 = st.columns([4, 1])
             with w1:
                 wrong_input = st.text_input("오답 이유", value=wrong_reason, placeholder="오답 이유를 입력하세요", key=f"wrong_{key_prefix}_{row_id}", label_visibility="collapsed")
             with w2:
@@ -166,28 +191,6 @@ def render_grading(data, key_prefix=""):
                         st.rerun()
                     except Exception as e:
                         st.toast(f"❌ 오류: {e}")
-            with w3:
-                if st.button("저장", key=f"save_{key_prefix}_{row_id}", use_container_width=True):
-                    try:
-                        supabase.table("submissions").update({
-                            "score_function": s1,
-                            "score_understanding": s2,
-                            "score_challenge": s3,
-                            "score_time": s4,
-                            "score_total": total
-                        }).eq("id", row_id).execute()
-                        st.cache_data.clear()
-                        st.toast(f"✅ {row['name']} — {row['problem']} 저장 완료! ({total}점)")
-                    except Exception as e:
-                        st.toast(f"❌ 저장 오류: {e}")
-            with w4:
-                if st.button("삭제", key=f"del_{key_prefix}_{row_id}", use_container_width=True):
-                    try:
-                        supabase.table("submissions").delete().eq("id", row_id).execute()
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"삭제 오류: {e}")
             st.markdown("---")
 
 tab_filtered, tab_all, tab_student, tab_teacher = st.tabs(["🏫 반별/문제별 채점", "📋 전체 목록", "🔍 학생별 코드 확인", "👤 교사 추가"])
