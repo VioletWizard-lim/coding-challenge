@@ -178,7 +178,7 @@ def render_grading(data, key_prefix=""):
                             st.error(f"삭제 오류: {e}")
             st.markdown("---")
 
-tab_filtered, tab_all, tab_teacher = st.tabs(["🏫 반별/문제별 채점", "📋 전체 목록", "👤 교사 추가"])
+tab_filtered, tab_all, tab_student, tab_teacher = st.tabs(["🏫 반별/문제별 채점", "📋 전체 목록", "🔍 학생별 코드 확인", "👤 교사 추가"])
 
 with tab_filtered:
     try:
@@ -222,6 +222,50 @@ with tab_all:
         all_data2 = [r for r in all_data2 if search.lower() in r["name"].lower()]
 
     render_grading(all_data2, key_prefix="all")
+
+with tab_student:
+    try:
+        all_data3 = load_submissions()
+    except Exception as e:
+        st.error(f"데이터 로드 오류: {e}")
+        all_data3 = []
+
+    # 학생 목록 추출
+    student_names = sorted(set(r["name"] for r in all_data3))
+
+    if not student_names:
+        st.info("아직 제출된 데이터가 없어요.")
+    else:
+        sc1, sc2 = st.columns([2, 4])
+        with sc1:
+            sel_student = st.selectbox("학생 선택", student_names, key="sel_student")
+        with sc2:
+            problems_all = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
+            sel_prob = st.selectbox("문제 선택", problems_all, key="sel_prob_student")
+
+        student_data = [r for r in all_data3 if r["name"] == sel_student]
+        if sel_prob != "전체":
+            student_data = [r for r in student_data if r["problem"] == sel_prob]
+
+        student_data.sort(key=lambda x: x["submitted_at"], reverse=True)
+
+        if not student_data:
+            st.info("해당 조건의 제출물이 없어요.")
+        else:
+            st.markdown(f"**{sel_student}** — 총 {len(student_data)}건")
+            for row in student_data:
+                time_str = to_kst(row["submitted_at"])
+                total = row.get("score_total") or 0
+                score_badge = f'<span style="color:#4f46e5; font-weight:900;">{total}점</span>' if total > 0 else '<span style="color:#aaa;">채점 중</span>'
+                class_badge = ""
+                if row.get("grade") and row.get("class"):
+                    class_badge = f'<span style="background:#e8f4fd; color:#2563eb; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700; margin-left:8px;">{row["grade"]}학년 {row["class"]}반</span>'
+
+                with st.expander(f"**{row['problem']}** · {time_str} · {total}점" if total > 0 else f"**{row['problem']}** · {time_str} · 채점 중"):
+                    st.markdown(f'<div style="margin-bottom:8px;">{class_badge} {score_badge}</div>', unsafe_allow_html=True)
+                    if row.get("description"):
+                        st.caption(f"설명: {row['description']}")
+                    st.code(row.get("code") or "", language="python")
 
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
