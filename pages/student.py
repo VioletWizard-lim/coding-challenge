@@ -1,7 +1,21 @@
 import streamlit as st
 from supabase import create_client
+from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="과제 제출", page_icon="📝", layout="centered")
+
+KST = timezone(timedelta(hours=9))
+
+def to_kst(utc_str):
+    if not utc_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(KST).strftime("%Y-%m-%d %H:%M")
+    except:
+        return utc_str[:16].replace("T", " ")
 
 if "user" not in st.session_state or not st.session_state.user:
     st.switch_page("app.py")
@@ -101,7 +115,7 @@ try:
     if res.data:
         for row in res.data:
             total = row["score_total"] or 0
-            time_str = row["submitted_at"][:16].replace("T", " ")
+            time_str = to_kst(row["submitted_at"])
             if total > 0:
                 score_html = f'<div style="color:#4f46e5; font-weight:900; font-size:1.2rem;">{total}점</div>'
             else:

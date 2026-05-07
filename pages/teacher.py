@@ -1,5 +1,6 @@
 import streamlit as st
 from supabase import create_client
+from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -17,6 +18,19 @@ def get_supabase():
 
 supabase = get_supabase()
 user = st.session_state.user
+
+KST = timezone(timedelta(hours=9))
+
+def to_kst(utc_str):
+    if not utc_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(KST).strftime("%Y-%m-%d %H:%M")
+    except:
+        return utc_str[:16].replace("T", " ")
 
 st.markdown("""
 <style>
@@ -53,7 +67,7 @@ label { color: #555 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── 헤더: 제목 + 버튼 한 줄 ──────────────────────────────
+# ── 헤더 ──────────────────────────────────────────────────
 col_title, col1, col2, col3 = st.columns([4, 1.2, 1.2, 1.2])
 with col_title:
     st.markdown(f"### 👨‍🏫 {user['name']} 선생님 — 채점 관리")
@@ -71,39 +85,28 @@ with col3:
 
 st.markdown("---")
 
-tab_grade, tab_teacher = st.tabs(["📋 채점 관리", "👤 교사 추가"])
+@st.cache_data(ttl=10)
+def load_submissions():
+    res = supabase.table("submissions") \
+        .select("*") \
+        .order("submitted_at", desc=True) \
+        .execute()
+    return res.data
 
-with tab_grade:
-    search = st.text_input("🔍 이름/학번 검색", placeholder="예: 홍길동, s2301")
-
-    @st.cache_data(ttl=10)
-    def load_submissions():
-        res = supabase.table("submissions") \
-            .select("*") \
-            .order("submitted_at", desc=True) \
-            .execute()
-        return res.data
-
-    try:
-        data = load_submissions()
-    except Exception as e:
-        st.error(f"데이터 로드 오류: {e}")
-        data = []
-
-    if search:
-        data = [row for row in data if search.lower() in row["name"].lower()]
-
+def render_grading(data):
     st.markdown(f"**총 {len(data)}건**")
-
     for row in data:
         row_id = row["id"]
-        time_str = row["submitted_at"][:16].replace("T", " ")
+        time_str = to_kst(row["submitted_at"])
+        class_info = ""
+        if row.get("grade") and row.get("class"):
+            class_info = f'<span style="background:#e8f4fd; color:#2563eb; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700; margin-left:8px;">{row["grade"]}학년 {row["class"]}반</span>'
 
         with st.container():
             st.markdown(f"""
             <div class="sub-card">
                 <div>
-                    <span class="sub-name">{row['name']}</span>
+                    <span class="sub-name">{row['name']}</span>{class_info}
                     <span class="sub-problem">{row['problem']}</span>
                     <span class="sub-time">{time_str}</span>
                 </div>
@@ -150,6 +153,51 @@ with tab_grade:
                         except Exception as e:
                             st.error(f"삭제 오류: {e}")
             st.markdown("---")
+
+tab_filtered, tab_all, tab_teacher = st.tabs(["🏫 반별/문제별 채점", "📋 전체 목록", "👤 교사 추가"])
+
+with tab_filtered:
+    try:
+        all_data = load_submissions()
+    except Exception as e:
+        st.error(f"데이터 로드 오류: {e}")
+        all_data = []
+
+    # 반 목록 동적 추출
+    grade_set = sorted(set(r["grade"] for r in all_data if r.get("grade")))
+    class_set = sorted(set(r["class"] for r in all_data if r.get("class")))
+    problems = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
+
+    fc1, fc2, fc3 = st.columns(3)
+    with fc1:
+        sel_grade = st.selectbox("학년", ["전체"] + grade_set, key="filter_grade")
+    with fc2:
+        sel_class = st.selectbox("반", ["전체"] + class_set, key="filter_class")
+    with fc3:
+        sel_problem = st.selectbox("문제", problems, key="filter_problem")
+
+    filtered = all_data
+    if sel_grade != "전체":
+        filtered = [r for r in filtered if r.get("grade") == sel_grade]
+    if sel_class != "전체":
+        filtered = [r for r in filtered if r.get("class") == sel_class]
+    if sel_problem != "전체":
+        filtered = [r for r in filtered if r.get("problem") == sel_problem]
+
+    render_grading(filtered)
+
+with tab_all:
+    try:
+        all_data2 = load_submissions()
+    except Exception as e:
+        st.error(f"데이터 로드 오류: {e}")
+        all_data2 = []
+
+    search = st.text_input("🔍 이름/학번 검색", placeholder="예: 홍길동, s2301", key="search_all")
+    if search:
+        all_data2 = [r for r in all_data2 if search.lower() in r["name"].lower()]
+
+    render_grading(all_data2)
 
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
