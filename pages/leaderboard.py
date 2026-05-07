@@ -52,7 +52,7 @@ st.markdown('<div class="lb-title">🏆 실시간 코딩 랭킹 🏆</div>', uns
 def load_leaderboard(grade=None, class_=None):
     try:
         query = supabase.table("submissions") \
-            .select("name, score_total, submitted_at, grade, class") \
+            .select("name, problem, score_total, submitted_at, grade, class") \
             .gt("score_total", 0)
 
         if grade:
@@ -62,15 +62,23 @@ def load_leaderboard(grade=None, class_=None):
 
         res = query.execute()
 
-        scores = {}
+        # 학생별, 문제별 최신 채점만 반영
+        best = {}  # {name: {problem: {score, at}}}
         for row in res.data:
             name = row["name"]
-            total = row["score_total"] or 0
-            if name not in scores:
-                scores[name] = {"total": 0, "last_at": row["submitted_at"]}
-            scores[name]["total"] += total
-            if row["submitted_at"] > scores[name]["last_at"]:
-                scores[name]["last_at"] = row["submitted_at"]
+            problem = row["problem"]
+            at = row["submitted_at"]
+            score = row["score_total"] or 0
+            if name not in best:
+                best[name] = {}
+            if problem not in best[name] or at > best[name][problem]["at"]:
+                best[name][problem] = {"score": score, "at": at}
+
+        scores = {}
+        for name, problems in best.items():
+            total = sum(p["score"] for p in problems.values())
+            last_at = max(p["at"] for p in problems.values())
+            scores[name] = {"total": total, "last_at": last_at}
 
         rank_list = [{"name": k, "total": v["total"], "last_at": v["last_at"]} for k, v in scores.items()]
         rank_list.sort(key=lambda x: (-x["total"], x["last_at"]))
