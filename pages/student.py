@@ -107,7 +107,7 @@ st.markdown("### 📊 내 제출 현황")
 
 try:
     res = supabase.table("submissions") \
-        .select("submitted_at, problem, score_total") \
+        .select("id, submitted_at, problem, score_total, code, description") \
         .eq("name", user["name"]) \
         .order("submitted_at", desc=True) \
         .execute()
@@ -123,7 +123,7 @@ try:
 
             st.markdown(f"""
             <div style="background:white; border:1px solid #e0e4f0; border-radius:10px;
-                        padding:14px 18px; margin-bottom:10px;
+                        padding:14px 18px; margin-bottom:4px;
                         display:flex; justify-content:space-between; align-items:center;
                         box-shadow:0 2px 6px rgba(0,0,0,0.04);">
                 <div>
@@ -133,6 +133,11 @@ try:
                 {score_html}
             </div>
             """, unsafe_allow_html=True)
+
+            with st.expander("📄 제출 코드 보기"):
+                if row.get("description"):
+                    st.caption(f"설명: {row['description']}")
+                st.code(row.get("code") or "", language="python")
     else:
         st.info("아직 제출한 과제가 없어요.")
 except Exception as e:
