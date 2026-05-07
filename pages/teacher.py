@@ -179,7 +179,7 @@ def render_grading(data, key_prefix=""):
                     except Exception as e:
                         st.error(f"삭제 오류: {e}")
 
-            w1, w2 = st.columns([4, 1])
+            w1, w2, w3 = st.columns([4, 1, 1])
             with w1:
                 wrong_input = st.text_input("오답 이유", value=wrong_reason, placeholder="오답 이유를 입력하세요", key=f"wrong_{key_prefix}_{row_id}", label_visibility="collapsed", disabled=total > 0)
             with w2:
@@ -188,6 +188,15 @@ def render_grading(data, key_prefix=""):
                         supabase.table("submissions").update({"wrong_reason": wrong_input}).eq("id", row_id).execute()
                         st.cache_data.clear()
                         st.toast(f"⚠️ {row['name']} — {row['problem']} 오답처리 완료!")
+                        st.rerun()
+                    except Exception as e:
+                        st.toast(f"❌ 오류: {e}")
+            with w3:
+                if st.button("🗑️ 오답 해제", key=f"wrong_clear_{key_prefix}_{row_id}", use_container_width=True, disabled=not wrong_reason):
+                    try:
+                        supabase.table("submissions").update({"wrong_reason": None}).eq("id", row_id).execute()
+                        st.cache_data.clear()
+                        st.toast(f"✅ {row['name']} — {row['problem']} 오답 해제 완료!")
                         st.rerun()
                     except Exception as e:
                         st.toast(f"❌ 오류: {e}")
