@@ -181,9 +181,9 @@ def render_grading(data, key_prefix=""):
 
             w1, w2 = st.columns([4, 1])
             with w1:
-                wrong_input = st.text_input("오답 이유", value=wrong_reason, placeholder="오답 이유를 입력하세요", key=f"wrong_{key_prefix}_{row_id}", label_visibility="collapsed")
+                wrong_input = st.text_input("오답 이유", value=wrong_reason, placeholder="오답 이유를 입력하세요", key=f"wrong_{key_prefix}_{row_id}", label_visibility="collapsed", disabled=total > 0)
             with w2:
-                if st.button("⚠️ 오답처리", key=f"wrong_btn_{key_prefix}_{row_id}", use_container_width=True):
+                if st.button("⚠️ 오답처리", key=f"wrong_btn_{key_prefix}_{row_id}", use_container_width=True, disabled=total > 0):
                     try:
                         supabase.table("submissions").update({"wrong_reason": wrong_input}).eq("id", row_id).execute()
                         st.cache_data.clear()
