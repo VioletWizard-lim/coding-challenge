@@ -93,8 +93,32 @@ def load_submissions():
         .execute()
     return res.data
 
-def render_grading(data):
-    st.markdown(f"**총 {len(data)}건**")
+def render_grading(data, key_prefix=""):
+    top_col1, top_col2 = st.columns([1, 5])
+    with top_col1:
+        if st.button("💾 전체 저장", use_container_width=True, key=f"save_all_{key_prefix}"):
+            try:
+                count = 0
+                for row in data:
+                    rid = row["id"]
+                    s1 = st.session_state.get(f"s1_{key_prefix}_{rid}", int(row.get("score_function") or 0))
+                    s2 = st.session_state.get(f"s2_{key_prefix}_{rid}", int(row.get("score_understanding") or 0))
+                    s3 = st.session_state.get(f"s3_{key_prefix}_{rid}", int(row.get("score_challenge") or 0))
+                    s4 = st.session_state.get(f"s4_{key_prefix}_{rid}", int(row.get("score_time") or 0))
+                    total = s1 + s2 + s3 + s4
+                    supabase.table("submissions").update({
+                        "score_function": s1, "score_understanding": s2,
+                        "score_challenge": s3, "score_time": s4, "score_total": total
+                    }).eq("id", rid).execute()
+                    count += 1
+                st.cache_data.clear()
+                st.success(f"✅ {count}건 전체 저장 완료!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"저장 오류: {e}")
+    with top_col2:
+        st.markdown(f"<div style='padding-top:8px; color:#888;'>총 {len(data)}건</div>", unsafe_allow_html=True)
+
     for row in data:
         row_id = row["id"]
         time_str = to_kst(row["submitted_at"])
@@ -117,13 +141,13 @@ def render_grading(data):
 
             c1, c2, c3, c4, c5, c6 = st.columns([2, 2, 2, 2, 1.5, 1])
             with c1:
-                s1 = st.number_input("기능(40)", 0, 40, int(row.get("score_function") or 0), key=f"s1_{row_id}")
+                s1 = st.number_input("기능(40)", 0, 40, int(row.get("score_function") or 0), key=f"s1_{key_prefix}_{row_id}")
             with c2:
-                s2 = st.number_input("이해도(30)", 0, 30, int(row.get("score_understanding") or 0), key=f"s2_{row_id}")
+                s2 = st.number_input("이해도(30)", 0, 30, int(row.get("score_understanding") or 0), key=f"s2_{key_prefix}_{row_id}")
             with c3:
-                s3 = st.number_input("도전(20)", 0, 20, int(row.get("score_challenge") or 0), key=f"s3_{row_id}")
+                s3 = st.number_input("도전(20)", 0, 20, int(row.get("score_challenge") or 0), key=f"s3_{key_prefix}_{row_id}")
             with c4:
-                s4 = st.number_input("제출시간(10)", 0, 10, int(row.get("score_time") or 0), key=f"s4_{row_id}")
+                s4 = st.number_input("제출시간(10)", 0, 10, int(row.get("score_time") or 0), key=f"s4_{key_prefix}_{row_id}")
             with c5:
                 total = s1 + s2 + s3 + s4
                 st.markdown(f"<br><div class='score-total'>합계: {total}점</div>", unsafe_allow_html=True)
@@ -131,7 +155,7 @@ def render_grading(data):
                 st.markdown("<br>", unsafe_allow_html=True)
                 save_col, del_col = st.columns(2)
                 with save_col:
-                    if st.button("저장", key=f"save_{row_id}"):
+                    if st.button("저장", key=f"save_{key_prefix}_{row_id}"):
                         try:
                             supabase.table("submissions").update({
                                 "score_function": s1,
@@ -141,11 +165,11 @@ def render_grading(data):
                                 "score_total": total
                             }).eq("id", row_id).execute()
                             st.cache_data.clear()
-                            st.success(f"저장 완료! ({total}점)")
+                            st.toast(f"✅ {row['name']} — {row['problem']} 저장 완료! ({total}점)")
                         except Exception as e:
-                            st.error(f"저장 오류: {e}")
+                            st.toast(f"❌ 저장 오류: {e}")
                 with del_col:
-                    if st.button("삭제", key=f"del_{row_id}"):
+                    if st.button("삭제", key=f"del_{key_prefix}_{row_id}"):
                         try:
                             supabase.table("submissions").delete().eq("id", row_id).execute()
                             st.cache_data.clear()
@@ -184,7 +208,7 @@ with tab_filtered:
     if sel_problem != "전체":
         filtered = [r for r in filtered if r.get("problem") == sel_problem]
 
-    render_grading(filtered)
+    render_grading(filtered, key_prefix="filtered")
 
 with tab_all:
     try:
@@ -197,7 +221,7 @@ with tab_all:
     if search:
         all_data2 = [r for r in all_data2 if search.lower() in r["name"].lower()]
 
-    render_grading(all_data2)
+    render_grading(all_data2, key_prefix="all")
 
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
