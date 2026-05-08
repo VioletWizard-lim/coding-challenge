@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone, timedelta
+import time
 
 st.set_page_config(page_title="과제 제출", page_icon="📝", layout="centered")
 
@@ -84,7 +85,16 @@ problem = st.selectbox("문제 번호", problems)
 code = st.text_area("코드 작성", height=250, placeholder="def solution():\n    ...")
 desc = st.text_input("설명 (선택)", placeholder="코드에 대한 간단한 설명을 입력하세요")
 
-if st.button("🚀 제출하기", use_container_width=True):
+if "last_submitted_at" not in st.session_state:
+    st.session_state.last_submitted_at = 0
+
+elapsed = time.time() - st.session_state.last_submitted_at
+cooldown = 5
+is_cooling = elapsed < cooldown
+
+btn_label = f"⏳ {int(cooldown - elapsed) + 1}초 후 제출 가능" if is_cooling else "🚀 제출하기"
+
+if st.button(btn_label, use_container_width=True, disabled=is_cooling):
     if not code.strip():
         st.warning("코드를 입력하세요!")
     else:
@@ -97,6 +107,7 @@ if st.button("🚀 제출하기", use_container_width=True):
                 "grade": user.get("grade"),
                 "class": user.get("class"),
             }).execute()
+            st.session_state.last_submitted_at = time.time()
             st.success(f"✅ 제출 완료! ({problem})")
             st.balloons()
         except Exception as e:
