@@ -1,7 +1,6 @@
 import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone, timedelta
-import html as html_lib
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -142,9 +141,9 @@ def render_grading(data, key_prefix=""):
                     <span class="sub-time">{time_str}</span>
                 </div>
                 <div style="color:#aaa; font-size:0.85rem; margin-top:6px;">설명: {row.get('description') or '없음'}</div>
-                <div class="code-block">{html_lib.escape(row.get('code') or '')}</div>
             </div>
             """, unsafe_allow_html=True)
+            st.code(row.get('code') or '', language='python')
 
             c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 1.5])
             with c1:
