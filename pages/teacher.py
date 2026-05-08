@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone, timedelta
+import html as html_lib
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -61,7 +62,7 @@ label { color: #555 !important; }
 .code-block {
     background: #f8f9fc; border: 1px solid #e0e4f0; border-radius: 8px; padding: 12px;
     font-family: 'Courier New', monospace; font-size: 0.85rem; color: #4f46e5;
-    white-space: pre-wrap; max-height: 150px; overflow-y: auto; margin: 10px 0;
+    white-space: pre; max-height: 260px; overflow-y: auto; margin: 10px 0;
 }
 .score-total { font-size: 1.4rem; font-weight: 900; color: #4f46e5; }
 
@@ -141,7 +142,7 @@ def render_grading(data, key_prefix=""):
                     <span class="sub-time">{time_str}</span>
                 </div>
                 <div style="color:#aaa; font-size:0.85rem; margin-top:6px;">설명: {row.get('description') or '없음'}</div>
-                <div class="code-block">{row['code']}</div>
+                <div class="code-block">{html_lib.escape(row.get('code') or '')}</div>
             </div>
             """, unsafe_allow_html=True)
 
