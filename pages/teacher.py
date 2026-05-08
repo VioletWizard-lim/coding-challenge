@@ -85,7 +85,7 @@ with col3:
 
 st.markdown("---")
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=3600)
 def load_submissions():
     res = supabase.table("submissions") \
         .select("*") \
