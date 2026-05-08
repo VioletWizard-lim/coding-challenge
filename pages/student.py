@@ -161,8 +161,8 @@ try:
                     """, unsafe_allow_html=True)
                     if row.get("feedback"):
                         st.warning(f"💬 선생님 피드백: {row['feedback']}")
-                    if row.get("wrong_reason"):
-                        st.error(f"⚠️ 오답 이유: {row['wrong_reason']}")
+                if row.get("wrong_reason"):
+                    st.error(f"⚠️ 오답 이유: {row['wrong_reason']}")
                 if row.get("description"):
                     st.caption(f"내 설명: {row['description']}")
                 st.code(row.get("code") or "", language="python")
