@@ -206,27 +206,28 @@ def render_grading(data, key_prefix=""):
                         st.toast(f"❌ 오류: {e}")
             st.markdown("---")
 
-tab_filtered, tab_all, tab_student, tab_teacher = st.tabs(["🏫 반별/문제별 채점", "📋 전체 목록", "🔍 학생별 코드 확인", "👤 교사 추가"])
+tab_grade, tab_student, tab_teacher = st.tabs(["📋 채점 관리", "🔍 학생별 코드 확인", "👤 교사 추가"])
 
-with tab_filtered:
+with tab_grade:
     try:
         all_data = load_submissions()
     except Exception as e:
         st.error(f"데이터 로드 오류: {e}")
         all_data = []
 
-    # 반 목록 동적 추출
     grade_set = sorted(set(r["grade"] for r in all_data if r.get("grade")))
     class_set = sorted(set(r["class"] for r in all_data if r.get("class")))
     problems = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
 
-    fc1, fc2, fc3 = st.columns(3)
+    fc1, fc2, fc3, fc4 = st.columns(4)
     with fc1:
         sel_grade = st.selectbox("학년", ["전체"] + grade_set, key="filter_grade")
     with fc2:
         sel_class = st.selectbox("반", ["전체"] + class_set, key="filter_class")
     with fc3:
         sel_problem = st.selectbox("문제", problems, key="filter_problem")
+    with fc4:
+        search = st.text_input("이름 검색", placeholder="예: 홍길동", key="search_name")
 
     filtered = all_data
     if sel_grade != "전체":
@@ -235,21 +236,10 @@ with tab_filtered:
         filtered = [r for r in filtered if r.get("class") == sel_class]
     if sel_problem != "전체":
         filtered = [r for r in filtered if r.get("problem") == sel_problem]
-
-    render_grading(filtered, key_prefix="filtered")
-
-with tab_all:
-    try:
-        all_data2 = load_submissions()
-    except Exception as e:
-        st.error(f"데이터 로드 오류: {e}")
-        all_data2 = []
-
-    search = st.text_input("🔍 이름/학번 검색", placeholder="예: 홍길동, s2301", key="search_all")
     if search:
-        all_data2 = [r for r in all_data2 if search.lower() in r["name"].lower()]
+        filtered = [r for r in filtered if search.lower() in r["name"].lower()]
 
-    render_grading(all_data2, key_prefix="all")
+    render_grading(filtered, key_prefix="grade")
 
 with tab_student:
     try:
