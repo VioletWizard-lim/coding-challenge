@@ -64,6 +64,10 @@ label { color: #555 !important; }
     white-space: pre-wrap; max-height: 150px; overflow-y: auto; margin: 10px 0;
 }
 .score-total { font-size: 1.4rem; font-weight: 900; color: #4f46e5; }
+
+/* 채점 중 화면 흐림 방지 */
+[data-stale="true"] { opacity: 1 !important; }
+.stApp { opacity: 1 !important; }
 </style>
 """, unsafe_allow_html=True)
 
