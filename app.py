@@ -89,32 +89,33 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 학생 로그인", "👨‍🏫 교사 로그인"])
 
 with tab1:
-    st.text_input("아이디", key="s_id", placeholder="학번을 입력하세요")
-    st.text_input("비밀번호", key="s_pw", type="password", placeholder="비밀번호를 입력하세요")
-    if st.button("입장하기", key="s_login"):
-        if not st.session_state.s_id or not st.session_state.s_pw:
-            st.warning("아이디와 비밀번호를 입력하세요.")
-        else:
-            user = login(st.session_state.s_id, st.session_state.s_pw, "student")
-            if user:
-                st.session_state.user = user
-                st.switch_page("pages/student.py")
+    with st.form("student_form"):
+        st.text_input("아이디", key="s_id", placeholder="학번을 입력하세요")
+        st.text_input("비밀번호", key="s_pw", type="password", placeholder="비밀번호를 입력하세요")
+        if st.form_submit_button("입장하기", use_container_width=True):
+            if not st.session_state.s_id or not st.session_state.s_pw:
+                st.warning("아이디와 비밀번호를 입력하세요.")
             else:
-                st.error("아이디 또는 비밀번호가 틀렸습니다.")
-    st.markdown("---")
+                user = login(st.session_state.s_id, st.session_state.s_pw, "student")
+                if user:
+                    st.session_state.user = user
+                    st.switch_page("pages/student.py")
+                else:
+                    st.error("아이디 또는 비밀번호가 틀렸습니다.")
     if st.button("🏆 실시간 랭킹 보기", key="ranking_btn"):
         st.switch_page("pages/leaderboard.py")
 
 with tab2:
-    st.text_input("아이디", key="t_id", placeholder="교사 아이디를 입력하세요")
-    st.text_input("비밀번호", key="t_pw", type="password", placeholder="비밀번호를 입력하세요")
-    if st.button("입장하기", key="t_login"):
-        if not st.session_state.t_id or not st.session_state.t_pw:
-            st.warning("아이디와 비밀번호를 입력하세요.")
-        else:
-            user = login(st.session_state.t_id, st.session_state.t_pw, "teacher")
-            if user:
-                st.session_state.user = user
-                st.switch_page("pages/teacher.py")
+    with st.form("teacher_form"):
+        st.text_input("아이디", key="t_id", placeholder="교사 아이디를 입력하세요")
+        st.text_input("비밀번호", key="t_pw", type="password", placeholder="비밀번호를 입력하세요")
+        if st.form_submit_button("입장하기", use_container_width=True):
+            if not st.session_state.t_id or not st.session_state.t_pw:
+                st.warning("아이디와 비밀번호를 입력하세요.")
             else:
-                st.error("아이디 또는 비밀번호가 틀렸습니다.")
+                user = login(st.session_state.t_id, st.session_state.t_pw, "teacher")
+                if user:
+                    st.session_state.user = user
+                    st.switch_page("pages/teacher.py")
+                else:
+                    st.error("아이디 또는 비밀번호가 틀렸습니다.")
