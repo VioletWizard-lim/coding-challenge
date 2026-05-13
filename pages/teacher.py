@@ -219,7 +219,7 @@ with tab_grade:
     class_set = sorted(set(r["class"] for r in all_data if r.get("class")))
     problems = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
 
-    fc1, fc2, fc3, fc4 = st.columns(4)
+    fc1, fc2, fc3, fc4, fc5 = st.columns([1.5, 1.5, 1.5, 2, 1.5])
     with fc1:
         sel_grade = st.selectbox("학년", ["전체"] + grade_set, key="filter_grade")
     with fc2:
@@ -228,6 +228,9 @@ with tab_grade:
         sel_problem = st.selectbox("문제", problems, key="filter_problem")
     with fc4:
         search = st.text_input("이름 검색", placeholder="예: 홍길동", key="search_name")
+    with fc5:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        only_ungraded = st.checkbox("미채점만 보기", key="only_ungraded")
 
     filtered = all_data
     if sel_grade != "전체":
@@ -238,6 +241,8 @@ with tab_grade:
         filtered = [r for r in filtered if r.get("problem") == sel_problem]
     if search:
         filtered = [r for r in filtered if search.lower() in r["name"].lower()]
+    if only_ungraded:
+        filtered = [r for r in filtered if not (r.get("score_total") or 0) > 0]
 
     render_grading(filtered, key_prefix="grade")
 
