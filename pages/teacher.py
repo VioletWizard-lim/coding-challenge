@@ -242,7 +242,7 @@ with tab_grade:
     if search:
         filtered = [r for r in filtered if search.lower() in r["name"].lower()]
     if only_ungraded:
-        filtered = [r for r in filtered if not (r.get("score_total") or 0) > 0]
+        filtered = [r for r in filtered if not (r.get("score_total") or 0) > 0 and not r.get("wrong_reason")]
 
     render_grading(filtered, key_prefix="grade")
 
