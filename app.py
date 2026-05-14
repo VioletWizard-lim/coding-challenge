@@ -1,5 +1,7 @@
 import streamlit as st
 from supabase import create_client
+from datetime import datetime, timedelta
+import extra_streamlit_components as stx
 
 st.set_page_config(
     page_title="파이썬 코딩 챌린지",
@@ -15,6 +17,7 @@ def get_supabase():
     )
 
 supabase = get_supabase()
+cookie_manager = stx.CookieManager(key="app_cookies")
 
 def login(user_id, password, role):
     try:
@@ -29,8 +32,26 @@ def login(user_id, password, role):
         st.error(f"DB 연결 오류: {e}")
         return None
 
+def save_session_cookie(user):
+    expires = datetime.now() + timedelta(hours=1)
+    cookie_manager.set("uid", user["id"], expires_at=expires)
+    cookie_manager.set("urole", user["role"], expires_at=expires)
+
 if "user" not in st.session_state:
     st.session_state.user = None
+
+# 쿠키로 세션 복원
+if not st.session_state.user:
+    saved_id = cookie_manager.get("uid")
+    saved_role = cookie_manager.get("urole")
+    if saved_id and saved_role:
+        try:
+            res = supabase.table("users").select("*").eq("id", saved_id).eq("role", saved_role).execute()
+            if res.data:
+                st.session_state.user = res.data[0]
+                st.rerun()
+        except:
+            pass
 
 if st.session_state.user:
     role = st.session_state.user["role"]
@@ -99,6 +120,7 @@ with tab1:
                 user = login(st.session_state.s_id, st.session_state.s_pw, "student")
                 if user:
                     st.session_state.user = user
+                    save_session_cookie(user)
                     st.switch_page("pages/student.py")
                 else:
                     st.error("아이디 또는 비밀번호가 틀렸습니다.")
@@ -116,6 +138,7 @@ with tab2:
                 user = login(st.session_state.t_id, st.session_state.t_pw, "teacher")
                 if user:
                     st.session_state.user = user
+                    save_session_cookie(user)
                     st.switch_page("pages/teacher.py")
                 else:
                     st.error("아이디 또는 비밀번호가 틀렸습니다.")

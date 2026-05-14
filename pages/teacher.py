@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone, timedelta
+import extra_streamlit_components as stx
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -18,6 +19,7 @@ def get_supabase():
 
 supabase = get_supabase()
 user = st.session_state.user
+cookie_manager = stx.CookieManager(key="teacher_cookies")
 
 KST = timezone(timedelta(hours=9))
 
@@ -84,6 +86,8 @@ with col2:
         st.rerun()
 with col3:
     if st.button("🚪 로그아웃", use_container_width=True):
+        cookie_manager.delete("uid")
+        cookie_manager.delete("urole")
         st.session_state.user = None
         st.switch_page("app.py")
 
