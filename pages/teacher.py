@@ -97,6 +97,30 @@ def load_submissions():
         .execute()
     return res.data
 
+@st.fragment(run_every=15)
+def notify_new_submissions():
+    try:
+        res = supabase.table("submissions") \
+            .select("id, name, problem") \
+            .order("submitted_at", desc=True) \
+            .limit(100) \
+            .execute()
+        current_ids = {r["id"] for r in res.data}
+
+        if st.session_state.get("known_submission_ids") is None:
+            st.session_state.known_submission_ids = current_ids
+        else:
+            new_subs = [r for r in res.data if r["id"] not in st.session_state.known_submission_ids]
+            for sub in new_subs:
+                st.toast(f"📬 {sub['name']} — {sub['problem']} 제출!", icon="🔔")
+            if new_subs:
+                st.session_state.known_submission_ids = current_ids
+                st.cache_data.clear()
+    except:
+        pass
+
+notify_new_submissions()
+
 def render_grading(data, key_prefix=""):
     top_col1, top_col2 = st.columns([1, 5])
     with top_col1:
