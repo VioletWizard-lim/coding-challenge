@@ -53,6 +53,8 @@ label { color: #555 !important; }
     color: white !important; border: none !important;
     border-radius: 10px !important; font-weight: 700 !important;
 }
+#MainMenu { visibility: hidden !important; }
+header[data-testid="stHeader"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 

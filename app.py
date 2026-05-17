@@ -97,6 +97,8 @@ section[data-testid="stSidebar"] { display: none !important; }
     font-size: 1rem !important; padding: 0.6rem !important; width: 100% !important;
 }
 label { color: #555 !important; font-size: 0.85rem !important; }
+#MainMenu { visibility: hidden !important; }
+header[data-testid="stHeader"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
