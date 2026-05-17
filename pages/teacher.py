@@ -70,6 +70,10 @@ label { color: #555 !important; }
 /* 채점 중 화면 흐림 방지 */
 [data-stale="true"] { opacity: 1 !important; }
 .stApp { opacity: 1 !important; }
+
+/* Streamlit 햄버거 메뉴 숨기기 */
+#MainMenu { visibility: hidden !important; }
+header[data-testid="stHeader"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
