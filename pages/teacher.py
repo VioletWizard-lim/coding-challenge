@@ -96,6 +96,19 @@ with col3:
 
 st.markdown("---")
 
+# Streamlit 'C' 키 단축키(Clear caches) 비활성화
+import streamlit.components.v1 as components
+components.html("""<script>
+window.parent.document.addEventListener('keydown', function(e) {
+    if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        var t = e.target;
+        if (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA' && !t.isContentEditable) {
+            e.stopImmediatePropagation();
+        }
+    }
+}, true);
+</script>""", height=0)
+
 @st.cache_data(ttl=3600)
 def load_submissions():
     res = supabase.table("submissions") \
