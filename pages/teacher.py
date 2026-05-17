@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone, timedelta
 import extra_streamlit_components as stx
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -95,6 +96,18 @@ with col3:
         st.switch_page("app.py")
 
 st.markdown("---")
+
+# 'C' 키 단축키(Clear caches) 차단
+components.html("""<script>
+window.parent.document.addEventListener('keydown', function(e) {
+    if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        var t = e.target;
+        if (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA' && !t.isContentEditable) {
+            e.stopImmediatePropagation();
+        }
+    }
+}, true);
+</script>""", height=0)
 
 @st.cache_data(ttl=3600)
 def load_submissions():
