@@ -78,8 +78,7 @@ with col2:
     st.empty()
 with col3:
     if st.button("🚪 로그아웃", use_container_width=True):
-        cookie_manager.delete("uid")
-        cookie_manager.delete("urole")
+        cookie_manager.delete("session")
         st.session_state.user = None
         st.switch_page("app.py")
 
