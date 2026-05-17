@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client
 from datetime import datetime, timedelta
 import extra_streamlit_components as stx
+import json
 
 st.set_page_config(
     page_title="파이썬 코딩 챌린지",
@@ -34,19 +35,18 @@ def login(user_id, password, role):
 
 def save_session_cookie(user):
     expires = datetime.now() + timedelta(hours=1)
-    cookie_manager.set("uid", user["id"], expires_at=expires)
-    cookie_manager.set("urole", user["role"], expires_at=expires)
+    cookie_manager.set("session", json.dumps({"id": user["id"], "role": user["role"]}), expires_at=expires)
 
 if "user" not in st.session_state:
     st.session_state.user = None
 
 # 쿠키로 세션 복원
 if not st.session_state.user:
-    saved_id = cookie_manager.get("uid")
-    saved_role = cookie_manager.get("urole")
-    if saved_id and saved_role:
+    saved = cookie_manager.get("session")
+    if saved:
         try:
-            res = supabase.table("users").select("*").eq("id", saved_id).eq("role", saved_role).execute()
+            data = json.loads(saved)
+            res = supabase.table("users").select("*").eq("id", data["id"]).eq("role", data["role"]).execute()
             if res.data:
                 st.session_state.user = res.data[0]
                 st.rerun()
@@ -97,6 +97,8 @@ section[data-testid="stSidebar"] { display: none !important; }
     font-size: 1rem !important; padding: 0.6rem !important; width: 100% !important;
 }
 label { color: #555 !important; font-size: 0.85rem !important; }
+#MainMenu { visibility: hidden !important; }
+header[data-testid="stHeader"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 

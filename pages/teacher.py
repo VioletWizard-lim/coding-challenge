@@ -70,6 +70,10 @@ label { color: #555 !important; }
 /* 채점 중 화면 흐림 방지 */
 [data-stale="true"] { opacity: 1 !important; }
 .stApp { opacity: 1 !important; }
+
+/* Streamlit 햄버거 메뉴 숨기기 */
+#MainMenu { visibility: hidden !important; }
+header[data-testid="stHeader"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -86,8 +90,7 @@ with col2:
         st.rerun()
 with col3:
     if st.button("🚪 로그아웃", use_container_width=True):
-        cookie_manager.delete("uid")
-        cookie_manager.delete("urole")
+        cookie_manager.delete("session")
         st.session_state.user = None
         st.switch_page("app.py")
 
