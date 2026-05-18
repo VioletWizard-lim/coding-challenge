@@ -35,18 +35,18 @@ def login(user_id, password, role):
 
 def save_session_cookie(user):
     expires = datetime.now() + timedelta(hours=1)
-    cookie_manager.set("session", json.dumps({"id": user["id"], "role": user["role"]}), expires_at=expires)
+    cookie_manager.set("session", json.dumps({"id": user["id"]}), expires_at=expires)
 
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# 쿠키로 세션 복원
+# 쿠키로 세션 복원 (role은 쿠키 무시, DB에서만 가져옴)
 if not st.session_state.user:
     saved = cookie_manager.get("session")
     if saved:
         try:
             data = json.loads(saved)
-            res = supabase.table("users").select("*").eq("id", data["id"]).eq("role", data["role"]).execute()
+            res = supabase.table("users").select("*").eq("id", data["id"]).execute()
             if res.data:
                 st.session_state.user = res.data[0]
                 st.rerun()
