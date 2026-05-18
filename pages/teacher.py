@@ -259,28 +259,28 @@ with tab_grade:
         st.error(f"데이터 로드 오류: {e}")
         all_data = []
 
-    grade_set = sorted(set(r["grade"] for r in all_data if r.get("grade")))
-    class_set = sorted(set(r["class"] for r in all_data if r.get("class")))
+    grade_class_set = sorted(set(
+        (r["grade"], r["class"]) for r in all_data if r.get("grade") and r.get("class")
+    ))
+    gc_options = ["전체"] + [f"{g}학년 {c}반" for g, c in grade_class_set]
     problems = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
 
-    fc1, fc2, fc3, fc4, fc5 = st.columns([1.5, 1.5, 1.5, 2, 1.5])
+    fc1, fc2, fc3, fc4 = st.columns([2, 1.5, 2, 1.5])
     with fc1:
-        sel_grade = st.selectbox("학년", ["전체"] + grade_set, key="filter_grade")
+        sel_gc = st.selectbox("학년-반", gc_options, key="filter_gc")
     with fc2:
-        sel_class = st.selectbox("반", ["전체"] + class_set, key="filter_class")
-    with fc3:
         sel_problem = st.selectbox("문제", problems, key="filter_problem")
-    with fc4:
+    with fc3:
         search = st.text_input("이름 검색", placeholder="예: 홍길동", key="search_name")
-    with fc5:
+    with fc4:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
         only_ungraded = st.checkbox("미채점만 보기", key="only_ungraded")
 
     filtered = all_data
-    if sel_grade != "전체":
-        filtered = [r for r in filtered if r.get("grade") == sel_grade]
-    if sel_class != "전체":
-        filtered = [r for r in filtered if r.get("class") == sel_class]
+    if sel_gc != "전체":
+        idx = gc_options.index(sel_gc) - 1
+        sel_grade, sel_class = grade_class_set[idx]
+        filtered = [r for r in filtered if r.get("grade") == sel_grade and r.get("class") == sel_class]
     if sel_problem != "전체":
         filtered = [r for r in filtered if r.get("problem") == sel_problem]
     if search:
