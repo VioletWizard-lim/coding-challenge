@@ -42,7 +42,7 @@ st.markdown("""
 [data-testid="stSidebarNav"] { display: none !important; }
 section[data-testid="stSidebar"] { display: none !important; }
 [data-testid="stAppViewContainer"] { background: #f5f7fa; }
-.block-container { padding-top: 60px !important; max-width: 1100px !important; }
+.block-container { padding-top: 60px !important; }
 h3 { color: #1a1a2e !important; }
 label { color: #555 !important; }
 .stTextInput input { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
