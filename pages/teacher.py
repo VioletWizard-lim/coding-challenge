@@ -300,15 +300,30 @@ with tab_student:
         st.error(f"데이터 로드 오류: {e}")
         all_data3 = []
 
-    # 학생 목록 추출
-    student_names = sorted(set(r["name"] for r in all_data3))
+    # 이름 → 학번 매핑 (users 테이블에서 조회)
+    try:
+        users_res = supabase.table("users").select("id, name").eq("role", "student").execute()
+        student_id_map = {r["name"]: r["id"][1:6] for r in users_res.data if r.get("id") and len(r["id"]) >= 6}
+    except:
+        student_id_map = {}
+
+    def student_label(name):
+        num = student_id_map.get(name, "")
+        return f"{num} {name}" if num else name
+
+    student_names = sorted(set(r["name"] for r in all_data3), key=student_label)
 
     if not student_names:
         st.info("아직 제출된 데이터가 없어요.")
     else:
         sc1, sc2 = st.columns([2, 4])
         with sc1:
-            sel_student = st.selectbox("학생 선택", student_names, key="sel_student")
+            sel_student = st.selectbox(
+                "학생 선택",
+                student_names,
+                format_func=student_label,
+                key="sel_student"
+            )
         with sc2:
             problems_all = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
             sel_prob = st.selectbox("문제 선택", problems_all, key="sel_prob_student")
@@ -322,7 +337,7 @@ with tab_student:
         if not student_data:
             st.info("해당 조건의 제출물이 없어요.")
         else:
-            st.markdown(f"**{sel_student}** — 총 {len(student_data)}건")
+            st.markdown(f"**{student_label(sel_student)}** — 총 {len(student_data)}건")
             for row in student_data:
                 time_str = to_kst(row["submitted_at"])
                 total = row.get("score_total") or 0
