@@ -87,7 +87,8 @@ with col1:
         st.switch_page("pages/leaderboard.py")
 with col2:
     if st.button("🔄 새로고침", use_container_width=True):
-        st.cache_data.clear()
+        with st.spinner("새로고침 중..."):
+            st.cache_data.clear()
         st.rerun()
 with col3:
     if st.button("🚪 로그아웃", use_container_width=True):
