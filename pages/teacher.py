@@ -42,7 +42,7 @@ st.markdown("""
 [data-testid="stSidebarNav"] { display: none !important; }
 section[data-testid="stSidebar"] { display: none !important; }
 [data-testid="stAppViewContainer"] { background: #f5f7fa; }
-.block-container { padding-top: 60px !important; }
+.block-container { padding-top: 60px !important; max-width: 1100px !important; }
 h3 { color: #1a1a2e !important; }
 label { color: #555 !important; }
 .stTextInput input { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
@@ -146,7 +146,22 @@ def notify_new_submissions():
 notify_new_submissions()
 
 def render_grading(data, key_prefix=""):
-    top_col1, top_col2 = st.columns([1, 5])
+    PAGE_SIZE = 15
+    total_count = len(data)
+    page_key = f"page_{key_prefix}"
+    hash_key = f"hash_{key_prefix}"
+
+    # 필터 변경 시 첫 페이지로 리셋
+    data_hash = total_count
+    if st.session_state.get(hash_key) != data_hash:
+        st.session_state[page_key] = 0
+        st.session_state[hash_key] = data_hash
+    page = st.session_state.get(page_key, 0)
+    start = page * PAGE_SIZE
+    end = min(start + PAGE_SIZE, total_count)
+    page_data = data[start:end]
+
+    top_col1, top_col2, top_col3, top_col4, top_col5 = st.columns([1.2, 1, 1, 3, 1.2])
     with top_col1:
         if st.button("💾 전체 저장", use_container_width=True, key=f"save_all_{key_prefix}"):
             try:
@@ -169,9 +184,17 @@ def render_grading(data, key_prefix=""):
             except Exception as e:
                 st.error(f"저장 오류: {e}")
     with top_col2:
-        st.markdown(f"<div style='padding-top:8px; color:#888;'>총 {len(data)}건</div>", unsafe_allow_html=True)
+        if st.button("◀ 이전", use_container_width=True, key=f"prev_{key_prefix}", disabled=page == 0):
+            st.session_state[page_key] = page - 1
+            st.rerun()
+    with top_col3:
+        if st.button("다음 ▶", use_container_width=True, key=f"next_{key_prefix}", disabled=end >= total_count):
+            st.session_state[page_key] = page + 1
+            st.rerun()
+    with top_col4:
+        st.markdown(f"<div style='padding-top:8px; color:#888;'>{start+1}~{end} / 총 {total_count}건</div>", unsafe_allow_html=True)
 
-    for row in data:
+    for row in page_data:
         row_id = row["id"]
         time_str = to_kst(row["submitted_at"])
         class_info = ""
