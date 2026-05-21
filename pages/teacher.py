@@ -253,7 +253,7 @@ def render_grading(data, key_prefix=""):
                         st.toast(f"❌ 오류: {e}")
             st.markdown("---")
 
-tab_grade, tab_student, tab_teacher = st.tabs(["📋 채점 관리", "🔍 학생별 코드 확인", "👤 교사 추가"])
+tab_grade, tab_student, tab_stats, tab_teacher = st.tabs(["📋 채점 관리", "🔍 학생별 코드 확인", "📊 반별 현황", "👤 교사 추가"])
 
 with tab_grade:
     try:
@@ -336,6 +336,50 @@ with tab_student:
                     if row.get("description"):
                         st.caption(f"설명: {row['description']}")
                     st.code(row.get("code") or "", language="python")
+
+with tab_stats:
+    import pandas as pd
+
+    try:
+        res = supabase.table("submissions") \
+            .select("name, problem, score_total, submitted_at, grade, class") \
+            .gt("score_total", 0) \
+            .execute()
+        raw = res.data
+    except Exception as e:
+        st.error(f"데이터 로드 오류: {e}")
+        raw = []
+
+    if not raw:
+        st.info("아직 채점된 데이터가 없어요.")
+    else:
+        # 학생별 문제별 최신 점수만 반영
+        best = {}
+        for row in raw:
+            key = (row["name"], row["problem"])
+            if key not in best or row["submitted_at"] > best[key]["at"]:
+                best[key] = {
+                    "score": row["score_total"] or 0,
+                    "class_label": f"{row.get('grade')}학년 {row.get('class')}반",
+                    "at": row["submitted_at"]
+                }
+
+        records = [
+            {"반": v["class_label"], "문제": k[1], "점수": v["score"]}
+            for k, v in best.items()
+        ]
+
+        df = pd.DataFrame(records)
+        all_problems = [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
+        pivot = df.pivot_table(index="반", columns="문제", values="점수", aggfunc="sum", fill_value=0)
+        cols = [p for p in all_problems if p in pivot.columns]
+        pivot = pivot[cols]
+        pivot.insert(0, "합계", pivot.sum(axis=1))
+        pivot = pivot.sort_index()
+
+        st.markdown("### 📊 반별 문제별 총점")
+        st.caption("각 학생의 최신 채점 점수 기준 합산")
+        st.dataframe(pivot, use_container_width=True)
 
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
