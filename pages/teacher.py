@@ -253,7 +253,7 @@ def render_grading(data, key_prefix=""):
                         st.toast(f"❌ 오류: {e}")
             st.markdown("---")
 
-tab_grade, tab_student, tab_teacher = st.tabs(["📋 채점 관리", "🔍 학생별 코드 확인", "👤 교사 추가"])
+tab_grade, tab_student, tab_stats, tab_teacher = st.tabs(["📋 채점 관리", "🔍 학생별 코드 확인", "📊 반별 현황", "👤 교사 추가"])
 
 with tab_grade:
     try:
@@ -300,15 +300,25 @@ with tab_student:
         st.error(f"데이터 로드 오류: {e}")
         all_data3 = []
 
-    # 학생 목록 추출
-    student_names = sorted(set(r["name"] for r in all_data3))
+    # 이름 → 학번 매핑
+    try:
+        users_res = supabase.table("users").select("id, name").eq("role", "student").execute()
+        student_id_map = {r["name"]: r["id"][1:6] for r in users_res.data if r.get("id") and len(r["id"]) >= 6}
+    except:
+        student_id_map = {}
+
+    def student_label(name):
+        num = student_id_map.get(name, "")
+        return f"{num} {name}" if num else name
+
+    student_names = sorted(set(r["name"] for r in all_data3), key=student_label)
 
     if not student_names:
         st.info("아직 제출된 데이터가 없어요.")
     else:
         sc1, sc2 = st.columns([2, 4])
         with sc1:
-            sel_student = st.selectbox("학생 선택", student_names, key="sel_student")
+            sel_student = st.selectbox("학생 선택", student_names, format_func=student_label, key="sel_student")
         with sc2:
             problems_all = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
             sel_prob = st.selectbox("문제 선택", problems_all, key="sel_prob_student")
@@ -316,13 +326,12 @@ with tab_student:
         student_data = [r for r in all_data3 if r["name"] == sel_student]
         if sel_prob != "전체":
             student_data = [r for r in student_data if r["problem"] == sel_prob]
-
         student_data.sort(key=lambda x: x["submitted_at"], reverse=True)
 
         if not student_data:
             st.info("해당 조건의 제출물이 없어요.")
         else:
-            st.markdown(f"**{sel_student}** — 총 {len(student_data)}건")
+            st.markdown(f"**{student_label(sel_student)}** — 총 {len(student_data)}건")
             for row in student_data:
                 time_str = to_kst(row["submitted_at"])
                 total = row.get("score_total") or 0
@@ -330,12 +339,75 @@ with tab_student:
                 class_badge = ""
                 if row.get("grade") and row.get("class"):
                     class_badge = f'<span style="background:#e8f4fd; color:#2563eb; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700; margin-left:8px;">{row["grade"]}학년 {row["class"]}반</span>'
-
                 with st.expander(f"**{row['problem']}** · {time_str} · {total}점" if total > 0 else f"**{row['problem']}** · {time_str} · 채점 중"):
                     st.markdown(f'<div style="margin-bottom:8px;">{class_badge} {score_badge}</div>', unsafe_allow_html=True)
                     if row.get("description"):
                         st.caption(f"설명: {row['description']}")
                     st.code(row.get("code") or "", language="python")
+
+with tab_stats:
+    import pandas as pd
+
+    try:
+        res = supabase.table("submissions") \
+            .select("name, problem, score_total, submitted_at, grade, class") \
+            .gt("score_total", 0) \
+            .execute()
+        raw = res.data
+    except Exception as e:
+        st.error(f"데이터 로드 오류: {e}")
+        raw = []
+
+    if not raw:
+        st.info("아직 채점된 데이터가 없어요.")
+    else:
+        # 반 목록
+        try:
+            users_res2 = supabase.table("users").select("id, name").eq("role", "student").execute()
+            sid_map = {r["name"]: r["id"][1:6] for r in users_res2.data if r.get("id") and len(r["id"]) >= 6}
+        except:
+            sid_map = {}
+
+        gc_set = sorted(set(
+            (r["grade"], r["class"]) for r in raw if r.get("grade") and r.get("class")
+        ))
+        gc_opts = [f"{g}학년 {c}반" for g, c in gc_set]
+
+        if not gc_opts:
+            st.info("반 정보가 없어요.")
+        else:
+            sel_gc_stats = st.selectbox("반 선택", gc_opts, key="stats_gc")
+            sel_g, sel_c = gc_set[gc_opts.index(sel_gc_stats)]
+
+            # 해당 반 데이터, 학생별·문제별 최신 점수
+            best = {}
+            for row in raw:
+                if row.get("grade") != sel_g or row.get("class") != sel_c:
+                    continue
+                key = (row["name"], row["problem"])
+                if key not in best or row["submitted_at"] > best[key]["at"]:
+                    best[key] = {"score": row["score_total"] or 0, "at": row["submitted_at"]}
+
+            if not best:
+                st.info("해당 반의 채점 데이터가 없어요.")
+            else:
+                records = [{"학생": k[0], "문제": k[1], "점수": v["score"]} for k, v in best.items()]
+                df = pd.DataFrame(records)
+                all_problems = [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
+                pivot = df.pivot_table(index="학생", columns="문제", values="점수", aggfunc="sum", fill_value=0)
+                cols = [p for p in all_problems if p in pivot.columns]
+                pivot = pivot[cols]
+                pivot.insert(0, "합계", pivot.sum(axis=1))
+
+                # 학번 기준 정렬
+                pivot = pivot.reset_index()
+                pivot["_sort"] = pivot["학생"].map(lambda n: sid_map.get(n, ""))
+                pivot = pivot.sort_values("_sort").drop(columns="_sort")
+                pivot["학생"] = pivot["학생"].map(lambda n: f"{sid_map.get(n, '')} {n}".strip())
+                pivot = pivot.set_index("학생")
+
+                st.markdown(f"### {sel_gc_stats} 학생별 점수 현황")
+                st.dataframe(pivot, use_container_width=True)
 
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
