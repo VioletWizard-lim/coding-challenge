@@ -431,7 +431,10 @@ with tab_stats:
                 pivot = pivot.set_index("학생")
 
                 st.markdown(f"### {sel_gc_stats} 학생별 점수 현황")
-                st.dataframe(pivot, use_container_width=True)
+                row_h = 35
+                tbl_h = 38 + len(pivot) * row_h
+                num_cols = {col: st.column_config.NumberColumn(col, width="small") for col in pivot.columns}
+                st.dataframe(pivot, use_container_width=False, height=tbl_h, column_config=num_cols)
 
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
