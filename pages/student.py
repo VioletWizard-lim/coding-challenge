@@ -113,7 +113,7 @@ PROBLEM_NAMES = {
 problems = list(PROBLEM_NAMES.keys())
 problem = st.selectbox("문제 번호", problems, format_func=lambda p: f"{p}. {PROBLEM_NAMES[p]}")
 code = st.text_area("코드 작성", height=250, placeholder="def solution():\n    ...")
-desc = st.text_input("설명 (선택)", placeholder="코드에 대한 간단한 설명을 입력하세요")
+desc = st.text_input("코드 설명 (필수)", placeholder="코드에 대한 설명을 입력하세요")
 
 if "last_submitted_at" not in st.session_state:
     st.session_state.last_submitted_at = 0
@@ -127,6 +127,8 @@ btn_label = f"⏳ {int(cooldown - elapsed) + 1}초 후 제출 가능" if is_cool
 if st.button(btn_label, use_container_width=True, disabled=is_cooling):
     if not code.strip():
         st.warning("코드를 입력하세요!")
+    elif not desc.strip():
+        st.warning("코드 설명을 입력하세요!")
     else:
         try:
             supabase.table("submissions").insert({
@@ -183,16 +185,12 @@ try:
                             <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_function') or 0}<span style="color:#bbb; font-size:0.8rem;">/40</span></div>
                         </div>
                         <div style="background:#f5f7fa; border-radius:8px; padding:8px 14px; text-align:center;">
-                            <div style="color:#888; font-size:0.75rem;">이해도</div>
-                            <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_understanding') or 0}<span style="color:#bbb; font-size:0.8rem;">/30</span></div>
+                            <div style="color:#888; font-size:0.75rem;">코드 설명</div>
+                            <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_understanding') or 0}<span style="color:#bbb; font-size:0.8rem;">/40</span></div>
                         </div>
                         <div style="background:#f5f7fa; border-radius:8px; padding:8px 14px; text-align:center;">
                             <div style="color:#888; font-size:0.75rem;">도전</div>
                             <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_challenge') or 0}<span style="color:#bbb; font-size:0.8rem;">/20</span></div>
-                        </div>
-                        <div style="background:#f5f7fa; border-radius:8px; padding:8px 14px; text-align:center;">
-                            <div style="color:#888; font-size:0.75rem;">제출시간</div>
-                            <div style="color:#4f46e5; font-weight:700; font-size:1rem;">{row.get('score_time') or 0}<span style="color:#bbb; font-size:0.8rem;">/10</span></div>
                         </div>
                         <div style="background:#4f46e5; border-radius:8px; padding:8px 14px; text-align:center;">
                             <div style="color:#c7d2fe; font-size:0.75rem;">합계</div>
