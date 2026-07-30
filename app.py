@@ -81,7 +81,7 @@ section[data-testid="stSidebar"] { display: none !important; }
 }
 .stTabs [data-baseweb="tab"] {
     flex: 1; border-radius: 8px; color: #666; font-weight: 700;
-    justify-content: center;
+    justify-content: center; padding: 10px 16px !important;
 }
 .stTabs [aria-selected="true"] { background: #4f46e5 !important; color: white !important; }
 .stTabs [data-baseweb="tab-highlight"] { display: none !important; }
