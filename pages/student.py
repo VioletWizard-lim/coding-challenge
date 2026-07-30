@@ -126,14 +126,22 @@ if st.button(btn_label, use_container_width=True, disabled=is_cooling):
         st.warning("코드 설명을 입력하세요!")
     else:
         try:
+            if subject == "프로그래밍":
+                sub_grade = user.get("programming_grade") or user.get("grade")
+                sub_class = user.get("programming_class") or user.get("class")
+            else:
+                sub_grade = user.get("grade")
+                sub_class = user.get("class")
+
             supabase.table("submissions").insert({
                 "name": user["name"],
                 "subject": subject,
                 "problem": problem,
                 "code": code,
                 "description": desc,
-                "grade": user.get("grade"),
-                "class": user.get("class"),
+                "grade": sub_grade,
+                "class": sub_class,
+                "year": datetime.now().year,
             }).execute()
             st.session_state.last_submitted_at = time.time()
             st.success(f"✅ 제출 완료! ({problem})")
