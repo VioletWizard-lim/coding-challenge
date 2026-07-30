@@ -48,6 +48,23 @@ h3 { color: #1a1a2e !important; }
 label { color: #555 !important; }
 .stTextInput input { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
 .stNumberInput input { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; text-align: center; }
+.stTabs [role="tablist"] {
+    gap: 6px; background: #e8eaf0; border-radius: 10px; padding: 4px;
+    border-bottom: none !important; outline: none !important; box-shadow: none !important;
+}
+.stTabs [data-testid="stTab"] {
+    border-radius: 8px; color: #666; font-weight: 700;
+    justify-content: center; padding: 10px 16px !important;
+    outline: none !important; box-shadow: none !important;
+}
+.stTabs [data-testid="stTab"][aria-selected="true"] { background: #4f46e5 !important; color: white !important; }
+.stTabs [data-testid="stTab"][aria-selected="true"] p { color: white !important; }
+.stTabs [data-testid="stTab"]:focus,
+.stTabs [data-testid="stTab"]:focus-visible,
+.stTabs [data-testid="stTab"]:active {
+    outline: none !important; box-shadow: none !important;
+}
+.stTabs .react-aria-SelectionIndicator { display: none !important; }
 .stButton > button {
     background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
     color: white !important; border: none !important;
