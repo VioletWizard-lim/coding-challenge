@@ -77,10 +77,15 @@ section[data-testid="stSidebar"] { display: none !important; }
 .title-wrap p { color: #888; font-size: 0.95rem; }
 
 .stTabs [data-baseweb="tab-list"] {
-    gap: 0; background: #e8eaf0; border-radius: 10px; padding: 4px;
+    gap: 0; background: #e8eaf0; border-radius: 10px; padding: 4px; border-bottom: none !important;
 }
-.stTabs [data-baseweb="tab"] { flex: 1; border-radius: 8px; color: #666; font-weight: 700; }
+.stTabs [data-baseweb="tab"] {
+    flex: 1; border-radius: 8px; color: #666; font-weight: 700;
+    justify-content: center;
+}
 .stTabs [aria-selected="true"] { background: #4f46e5 !important; color: white !important; }
+.stTabs [data-baseweb="tab-highlight"] { display: none !important; }
+.stTabs [data-baseweb="tab-border"] { display: none !important; }
 
 .stTextInput input {
     background: white !important; border: 1px solid #dde1f0 !important;
