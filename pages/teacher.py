@@ -3,21 +3,9 @@ from supabase import create_client
 from datetime import datetime, timezone, timedelta
 import extra_streamlit_components as stx
 import streamlit.components.v1 as components
+from problem_data import SUBJECTS
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
-
-ALL_PROBLEMS = [
-    "1-1", "1-2", "1-3", "1-4", "1-5", "1-6",
-    "2-1", "2-2", "2-3", "2-4", "2-5", "2-6",
-    "3-1", "3-2", "3-3", "3-4", "3-5",
-    "4-1", "4-2", "4-3", "4-4", "4-5",
-    "5-1", "5-2", "5-3", "5-4", "5-5",
-    "6-1", "6-2", "6-3", "6-4", "6-5",
-    "7-1", "7-2", "7-3", "7-4", "7-5", "7-6",
-    "8-1", "8-2", "8-3", "8-4", "8-5",
-    "9-1", "9-2", "9-3", "9-4", "9-5",
-    "10-1", "10-2", "10-3", "10-4", "10-5",
-]
 
 if "user" not in st.session_state or not st.session_state.user:
     st.switch_page("app.py")
@@ -212,6 +200,9 @@ def render_grading(data, key_prefix=""):
         class_info = ""
         if row.get("grade") and row.get("class"):
             class_info = f'<span style="background:#e8f4fd; color:#2563eb; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700; margin-left:8px;">{row["grade"]}학년 {row["class"]}반</span>'
+        subject_badge = ""
+        if row.get("subject"):
+            subject_badge = f'<span style="background:#ede9fe; color:#7c3aed; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700; margin-left:8px;">{row["subject"]}</span>'
 
         with st.container():
             wrong_reason = row.get("wrong_reason") or ""
@@ -219,7 +210,7 @@ def render_grading(data, key_prefix=""):
             st.markdown(f"""
             <div class="sub-card">
                 <div>
-                    <span class="sub-name">{row['name']}</span>{class_info}{wrong_badge}
+                    <span class="sub-name">{row['name']}</span>{class_info}{subject_badge}{wrong_badge}
                     <span class="sub-problem">{row['problem']}</span>
                     <span class="sub-time">{time_str}</span>
                 </div>
@@ -300,12 +291,23 @@ with tab_grade:
         (r["grade"], r["class"]) for r in all_data if r.get("grade") and r.get("class")
     ))
     gc_options = ["전체"] + [f"{g}학년 {c}반" for g, c in grade_class_set]
-    problems = ["전체"] + ALL_PROBLEMS
+    subject_options = ["전체"] + list(SUBJECTS.keys())
 
-    fc1, fc2, fc3, fc4 = st.columns([2, 1.5, 2, 1.5])
+    if "filter_subject" not in st.session_state:
+        saved_subject_cookie = cookie_manager.get("subject")
+        if saved_subject_cookie in subject_options:
+            st.session_state["filter_subject"] = saved_subject_cookie
+
+    fc0, fc1, fc2, fc3, fc4 = st.columns([1.3, 2, 1.5, 2, 1.5])
+    with fc0:
+        sel_subject = st.selectbox("과목", subject_options, key="filter_subject")
+        if cookie_manager.get("subject") != sel_subject:
+            cookie_manager.set("subject", sel_subject, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie_grade")
     with fc1:
         sel_gc = st.selectbox("학년-반", gc_options, key="filter_gc")
     with fc2:
+        problems = ["전체"] + list(SUBJECTS[sel_subject].keys()) if sel_subject != "전체" \
+            else ["전체"] + sorted({p for probs in SUBJECTS.values() for p in probs})
         sel_problem = st.selectbox("문제", problems, key="filter_problem")
     with fc3:
         search = st.text_input("이름 검색", placeholder="예: 홍길동", key="search_name")
@@ -314,6 +316,8 @@ with tab_grade:
         only_ungraded = st.checkbox("미채점만 보기", key="only_ungraded")
 
     filtered = all_data
+    if sel_subject != "전체":
+        filtered = [r for r in filtered if r.get("subject") == sel_subject]
     if sel_gc != "전체":
         idx = gc_options.index(sel_gc) - 1
         sel_grade, sel_class = grade_class_set[idx]
@@ -350,14 +354,26 @@ with tab_student:
     if not student_names:
         st.info("아직 제출된 데이터가 없어요.")
     else:
-        sc1, sc2 = st.columns([2, 4])
+        sc1, sc2, sc3 = st.columns([2, 1.5, 2.5])
         with sc1:
             sel_student = st.selectbox("학생 선택", student_names, format_func=student_label, key="sel_student")
         with sc2:
-            problems_all = ["전체"] + ALL_PROBLEMS
+            subject_options_st = ["전체"] + list(SUBJECTS.keys())
+            if "sel_subject_student" not in st.session_state:
+                saved_subject_cookie = cookie_manager.get("subject")
+                if saved_subject_cookie in subject_options_st:
+                    st.session_state["sel_subject_student"] = saved_subject_cookie
+            sel_subject_st = st.selectbox("과목", subject_options_st, key="sel_subject_student")
+            if cookie_manager.get("subject") != sel_subject_st:
+                cookie_manager.set("subject", sel_subject_st, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie_student")
+        with sc3:
+            problems_all = ["전체"] + list(SUBJECTS[sel_subject_st].keys()) if sel_subject_st != "전체" \
+                else ["전체"] + sorted({p for probs in SUBJECTS.values() for p in probs})
             sel_prob = st.selectbox("문제 선택", problems_all, key="sel_prob_student")
 
         student_data = [r for r in all_data3 if r["name"] == sel_student]
+        if sel_subject_st != "전체":
+            student_data = [r for r in student_data if r.get("subject") == sel_subject_st]
         if sel_prob != "전체":
             student_data = [r for r in student_data if r["problem"] == sel_prob]
         student_data.sort(key=lambda x: x["submitted_at"], reverse=True)
@@ -384,7 +400,7 @@ with tab_stats:
 
     try:
         res = supabase.table("submissions") \
-            .select("name, problem, score_total, submitted_at, grade, class") \
+            .select("name, problem, subject, score_total, submitted_at, grade, class") \
             .gt("score_total", 0) \
             .execute()
         raw = res.data
@@ -410,13 +426,26 @@ with tab_stats:
         if not gc_opts:
             st.info("반 정보가 없어요.")
         else:
-            sel_gc_stats = st.selectbox("반 선택", gc_opts, key="stats_gc")
+            stats_c1, stats_c2 = st.columns([2, 2])
+            with stats_c1:
+                sel_gc_stats = st.selectbox("반 선택", gc_opts, key="stats_gc")
+            with stats_c2:
+                subject_list_stats = list(SUBJECTS.keys())
+                if "stats_subject" not in st.session_state:
+                    saved_subject_cookie = cookie_manager.get("subject")
+                    if saved_subject_cookie in subject_list_stats:
+                        st.session_state["stats_subject"] = saved_subject_cookie
+                sel_subject_stats = st.selectbox("과목", subject_list_stats, key="stats_subject")
+                if cookie_manager.get("subject") != sel_subject_stats:
+                    cookie_manager.set("subject", sel_subject_stats, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie_stats")
             sel_g, sel_c = gc_set[gc_opts.index(sel_gc_stats)]
 
             # 해당 반 데이터, 학생별·문제별 최신 점수
             best = {}
             for row in raw:
                 if row.get("grade") != sel_g or row.get("class") != sel_c:
+                    continue
+                if row.get("subject") != sel_subject_stats:
                     continue
                 key = (row["name"], row["problem"])
                 if key not in best or row["submitted_at"] > best[key]["at"]:
@@ -427,7 +456,7 @@ with tab_stats:
             else:
                 records = [{"학생": k[0], "문제": k[1], "점수": v["score"]} for k, v in best.items()]
                 df = pd.DataFrame(records)
-                all_problems = ALL_PROBLEMS
+                all_problems = list(SUBJECTS[sel_subject_stats].keys())
                 pivot = df.pivot_table(index="학생", columns="문제", values="점수", aggfunc="sum", fill_value=0)
                 cols = [p for p in all_problems if p in pivot.columns]
                 pivot = pivot[cols]
@@ -440,7 +469,7 @@ with tab_stats:
                 pivot["학생"] = pivot["학생"].map(lambda n: f"{sid_map.get(n, '')} {n}".strip())
                 pivot = pivot.set_index("학생")
 
-                st.markdown(f"### {sel_gc_stats} 학생별 점수 현황")
+                st.markdown(f"### {sel_gc_stats} · {sel_subject_stats} 학생별 점수 현황")
                 row_h = 35
                 tbl_h = 38 + len(pivot) * row_h
                 num_cols = {col: st.column_config.NumberColumn(col, width="small") for col in pivot.columns}
