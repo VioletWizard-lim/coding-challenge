@@ -86,6 +86,12 @@ section[data-testid="stSidebar"] { display: none !important; }
 .stTabs [aria-selected="true"] { background: #4f46e5 !important; color: white !important; }
 .stTabs [data-baseweb="tab-highlight"] { display: none !important; }
 .stTabs [data-baseweb="tab-border"] { display: none !important; }
+.stTabs [data-baseweb="tab"]:focus,
+.stTabs [data-baseweb="tab"]:focus-visible,
+.stTabs [data-baseweb="tab"]:active {
+    outline: none !important; box-shadow: none !important;
+}
+.stTabs [data-baseweb="tab-list"] { outline: none !important; box-shadow: none !important; }
 
 .stTextInput input {
     background: white !important; border: 1px solid #dde1f0 !important;
