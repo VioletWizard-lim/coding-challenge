@@ -293,9 +293,16 @@ with tab_grade:
     gc_options = ["전체"] + [f"{g}학년 {c}반" for g, c in grade_class_set]
     subject_options = ["전체"] + list(SUBJECTS.keys())
 
+    if "filter_subject" not in st.session_state:
+        saved_subject_cookie = cookie_manager.get("subject")
+        if saved_subject_cookie in subject_options:
+            st.session_state["filter_subject"] = saved_subject_cookie
+
     fc0, fc1, fc2, fc3, fc4 = st.columns([1.3, 2, 1.5, 2, 1.5])
     with fc0:
         sel_subject = st.selectbox("과목", subject_options, key="filter_subject")
+        if cookie_manager.get("subject") != sel_subject:
+            cookie_manager.set("subject", sel_subject, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie_grade")
     with fc1:
         sel_gc = st.selectbox("학년-반", gc_options, key="filter_gc")
     with fc2:
@@ -352,7 +359,13 @@ with tab_student:
             sel_student = st.selectbox("학생 선택", student_names, format_func=student_label, key="sel_student")
         with sc2:
             subject_options_st = ["전체"] + list(SUBJECTS.keys())
+            if "sel_subject_student" not in st.session_state:
+                saved_subject_cookie = cookie_manager.get("subject")
+                if saved_subject_cookie in subject_options_st:
+                    st.session_state["sel_subject_student"] = saved_subject_cookie
             sel_subject_st = st.selectbox("과목", subject_options_st, key="sel_subject_student")
+            if cookie_manager.get("subject") != sel_subject_st:
+                cookie_manager.set("subject", sel_subject_st, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie_student")
         with sc3:
             problems_all = ["전체"] + list(SUBJECTS[sel_subject_st].keys()) if sel_subject_st != "전체" \
                 else ["전체"] + sorted({p for probs in SUBJECTS.values() for p in probs})
@@ -417,7 +430,14 @@ with tab_stats:
             with stats_c1:
                 sel_gc_stats = st.selectbox("반 선택", gc_opts, key="stats_gc")
             with stats_c2:
-                sel_subject_stats = st.selectbox("과목", list(SUBJECTS.keys()), key="stats_subject")
+                subject_list_stats = list(SUBJECTS.keys())
+                if "stats_subject" not in st.session_state:
+                    saved_subject_cookie = cookie_manager.get("subject")
+                    if saved_subject_cookie in subject_list_stats:
+                        st.session_state["stats_subject"] = saved_subject_cookie
+                sel_subject_stats = st.selectbox("과목", subject_list_stats, key="stats_subject")
+                if cookie_manager.get("subject") != sel_subject_stats:
+                    cookie_manager.set("subject", sel_subject_stats, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie_stats")
             sel_g, sel_c = gc_set[gc_opts.index(sel_gc_stats)]
 
             # 해당 반 데이터, 학생별·문제별 최신 점수

@@ -90,7 +90,12 @@ st.markdown("---")
 st.markdown("### 📝 과제 제출")
 
 if len(SUBJECTS) > 1:
-    subject = st.selectbox("과목", list(SUBJECTS.keys()))
+    subject_list = list(SUBJECTS.keys())
+    saved_subject = cookie_manager.get("subject")
+    default_idx = subject_list.index(saved_subject) if saved_subject in subject_list else 0
+    subject = st.selectbox("과목", subject_list, index=default_idx)
+    if subject != saved_subject:
+        cookie_manager.set("subject", subject, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie")
 else:
     subject = list(SUBJECTS.keys())[0]
 
