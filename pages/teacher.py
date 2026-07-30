@@ -400,7 +400,7 @@ with tab_stats:
 
     try:
         res = supabase.table("submissions") \
-            .select("name, problem, subject, score_total, submitted_at, grade, class") \
+            .select("name, problem, subject, score_total, submitted_at, grade, class, year") \
             .gt("score_total", 0) \
             .execute()
         raw = res.data
@@ -426,7 +426,7 @@ with tab_stats:
         if not gc_opts:
             st.info("반 정보가 없어요.")
         else:
-            stats_c1, stats_c2 = st.columns([2, 2])
+            stats_c1, stats_c2, stats_c3 = st.columns([2, 2, 1.3])
             with stats_c1:
                 sel_gc_stats = st.selectbox("반 선택", gc_opts, key="stats_gc")
             with stats_c2:
@@ -438,6 +438,12 @@ with tab_stats:
                 sel_subject_stats = st.selectbox("과목", subject_list_stats, key="stats_subject")
                 if cookie_manager.get("subject") != sel_subject_stats:
                     cookie_manager.set("subject", sel_subject_stats, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie_stats")
+            with stats_c3:
+                current_year = datetime.now().year
+                year_opts_stats = sorted({r["year"] for r in raw if r.get("year")}, reverse=True)
+                if current_year not in year_opts_stats:
+                    year_opts_stats = sorted(year_opts_stats + [current_year], reverse=True)
+                sel_year_stats = st.selectbox("연도", year_opts_stats, key="stats_year")
             sel_g, sel_c = gc_set[gc_opts.index(sel_gc_stats)]
 
             # 해당 반 데이터, 학생별·문제별 최신 점수
@@ -446,6 +452,8 @@ with tab_stats:
                 if row.get("grade") != sel_g or row.get("class") != sel_c:
                     continue
                 if row.get("subject") != sel_subject_stats:
+                    continue
+                if row.get("year") != sel_year_stats:
                     continue
                 key = (row["name"], row["problem"])
                 if key not in best or row["submitted_at"] > best[key]["at"]:
@@ -469,7 +477,7 @@ with tab_stats:
                 pivot["학생"] = pivot["학생"].map(lambda n: f"{sid_map.get(n, '')} {n}".strip())
                 pivot = pivot.set_index("학생")
 
-                st.markdown(f"### {sel_gc_stats} · {sel_subject_stats} 학생별 점수 현황")
+                st.markdown(f"### {sel_year_stats} · {sel_gc_stats} · {sel_subject_stats} 학생별 점수 현황")
                 row_h = 35
                 tbl_h = 38 + len(pivot) * row_h
                 num_cols = {col: st.column_config.NumberColumn(col, width="small") for col in pivot.columns}

@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client
 import time
+from datetime import datetime
 from problem_data import SUBJECTS
 
 st.set_page_config(page_title="실시간 랭킹", page_icon="🏆", layout="centered")
@@ -50,11 +51,12 @@ section[data-testid="stSidebar"] { display: none !important; }
 
 st.markdown('<div class="lb-title">🏆 실시간 코딩 랭킹 🏆</div>', unsafe_allow_html=True)
 
-def load_leaderboard(subject, grade=None, class_=None):
+def load_leaderboard(subject, year, grade=None, class_=None):
     try:
         query = supabase.table("submissions") \
             .select("name, problem, score_total, submitted_at, grade, class") \
             .eq("subject", subject) \
+            .eq("year", year) \
             .gt("score_total", 0)
 
         if grade:
@@ -89,11 +91,12 @@ def load_leaderboard(subject, grade=None, class_=None):
         st.error(f"데이터 로드 오류: {e}")
         return []
 
-def load_classes(subject):
+def load_classes(subject, year):
     try:
         res = supabase.table("submissions") \
             .select("grade, class") \
             .eq("subject", subject) \
+            .eq("year", year) \
             .gt("score_total", 0) \
             .execute()
         seen = set()
@@ -111,19 +114,44 @@ def load_classes(subject):
     except:
         return []
 
-user = st.session_state.get("user")
-user_grade = user.get("grade") if user and user.get("role") == "student" else None
-user_class = user.get("class") if user and user.get("role") == "student" else None
+def load_years():
+    try:
+        res = supabase.table("submissions").select("year").gt("score_total", 0).execute()
+        years = sorted({row["year"] for row in res.data if row.get("year")}, reverse=True)
+        return years
+    except:
+        return []
 
-# ── 과목 선택 ─────────────────────────────────────────────
+user = st.session_state.get("user")
+is_student = bool(user and user.get("role") == "student")
+
+# ── 과목 / 연도 선택 ──────────────────────────────────────
 subject_list = list(SUBJECTS.keys())
-sel_subject = st.selectbox("과목", subject_list, key="lb_subject") if len(subject_list) > 1 else subject_list[0]
+sel_col1, sel_col2 = st.columns(2)
+with sel_col1:
+    sel_subject = st.selectbox("과목", subject_list, key="lb_subject") if len(subject_list) > 1 else subject_list[0]
+with sel_col2:
+    current_year = datetime.now().year
+    year_options = load_years()
+    if current_year not in year_options:
+        year_options = sorted(year_options + [current_year], reverse=True)
+    sel_year = st.selectbox("연도", year_options, key="lb_year")
+
+if is_student and sel_subject == "프로그래밍":
+    user_grade = user.get("programming_grade") or user.get("grade")
+    user_class = user.get("programming_class") or user.get("class")
+elif is_student:
+    user_grade = user.get("grade")
+    user_class = user.get("class")
+else:
+    user_grade = None
+    user_class = None
 
 # ── 반 선택 / 탭 (타이틀 바로 아래) ──────────────────────
 if user_grade and user_class:
     tab1, tab2 = st.tabs([f"🏫 {user_grade}학년 {user_class}반 랭킹", "🌍 전체 랭킹"])
 else:
-    classes_list = load_classes(sel_subject)
+    classes_list = load_classes(sel_subject, sel_year)
     options = ["전체"] + [f"{g}학년 {c}반" for g, c in classes_list]
     selected = st.selectbox("반 선택", options, label_visibility="collapsed")
 
@@ -167,17 +195,17 @@ def render(rank_list, subtitle=""):
 
 if user_grade and user_class:
     with tab1:
-        render(load_leaderboard(sel_subject, grade=user_grade, class_=user_class),
-               subtitle=f"{sel_subject} · {user_grade}학년 {user_class}반 학생들의 랭킹")
+        render(load_leaderboard(sel_subject, sel_year, grade=user_grade, class_=user_class),
+               subtitle=f"{sel_year} · {sel_subject} · {user_grade}학년 {user_class}반 학생들의 랭킹")
     with tab2:
-        render(load_leaderboard(sel_subject), subtitle=f"{sel_subject} 전체 학생 랭킹")
+        render(load_leaderboard(sel_subject, sel_year), subtitle=f"{sel_year} · {sel_subject} 전체 학생 랭킹")
 else:
     if selected == "전체":
-        render(load_leaderboard(sel_subject), subtitle=f"{sel_subject} 전체 학생 랭킹")
+        render(load_leaderboard(sel_subject, sel_year), subtitle=f"{sel_year} · {sel_subject} 전체 학생 랭킹")
     else:
         idx = options.index(selected) - 1
         g, c = classes_list[idx]
-        render(load_leaderboard(sel_subject, grade=g, class_=c), subtitle=f"{sel_subject} · {g}학년 {c}반 학생들의 랭킹")
+        render(load_leaderboard(sel_subject, sel_year, grade=g, class_=c), subtitle=f"{sel_year} · {sel_subject} · {g}학년 {c}반 학생들의 랭킹")
 
 if auto_refresh:
     time.sleep(30)
