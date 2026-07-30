@@ -6,6 +6,19 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
+ALL_PROBLEMS = [
+    "1-1", "1-2", "1-3", "1-4", "1-5", "1-6",
+    "2-1", "2-2", "2-3", "2-4", "2-5", "2-6",
+    "3-1", "3-2", "3-3", "3-4", "3-5",
+    "4-1", "4-2", "4-3", "4-4", "4-5",
+    "5-1", "5-2", "5-3", "5-4", "5-5",
+    "6-1", "6-2", "6-3", "6-4", "6-5",
+    "7-1", "7-2", "7-3", "7-4", "7-5", "7-6",
+    "8-1", "8-2", "8-3", "8-4", "8-5",
+    "9-1", "9-2", "9-3", "9-4", "9-5",
+    "10-1", "10-2", "10-3", "10-4", "10-5",
+]
+
 if "user" not in st.session_state or not st.session_state.user:
     st.switch_page("app.py")
 if st.session_state.user["role"] != "teacher":
@@ -290,7 +303,7 @@ with tab_grade:
         (r["grade"], r["class"]) for r in all_data if r.get("grade") and r.get("class")
     ))
     gc_options = ["전체"] + [f"{g}학년 {c}반" for g, c in grade_class_set]
-    problems = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
+    problems = ["전체"] + ALL_PROBLEMS
 
     fc1, fc2, fc3, fc4 = st.columns([2, 1.5, 2, 1.5])
     with fc1:
@@ -344,7 +357,7 @@ with tab_student:
         with sc1:
             sel_student = st.selectbox("학생 선택", student_names, format_func=student_label, key="sel_student")
         with sc2:
-            problems_all = ["전체"] + [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
+            problems_all = ["전체"] + ALL_PROBLEMS
             sel_prob = st.selectbox("문제 선택", problems_all, key="sel_prob_student")
 
         student_data = [r for r in all_data3 if r["name"] == sel_student]
@@ -417,7 +430,7 @@ with tab_stats:
             else:
                 records = [{"학생": k[0], "문제": k[1], "점수": v["score"]} for k, v in best.items()]
                 df = pd.DataFrame(records)
-                all_problems = [f"{i}-{j}" for i in range(1, 10) for j in range(1, 4)]
+                all_problems = ALL_PROBLEMS
                 pivot = df.pivot_table(index="학생", columns="문제", values="점수", aggfunc="sum", fill_value=0)
                 cols = [p for p in all_problems if p in pivot.columns]
                 pivot = pivot[cols]
