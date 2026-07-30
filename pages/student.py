@@ -89,15 +89,20 @@ with col3:
 st.markdown("---")
 st.markdown("### 📝 과제 제출")
 
-if len(SUBJECTS) > 1:
-    subject_list = list(SUBJECTS.keys())
+user_subjects_raw = user.get("subjects")
+if user_subjects_raw:
+    allowed_subjects = [s.strip() for s in user_subjects_raw.split(",") if s.strip() in SUBJECTS]
+if not user_subjects_raw or not allowed_subjects:
+    allowed_subjects = list(SUBJECTS.keys())
+
+if len(allowed_subjects) > 1:
     saved_subject = cookie_manager.get("subject")
-    default_idx = subject_list.index(saved_subject) if saved_subject in subject_list else 0
-    subject = st.selectbox("과목", subject_list, index=default_idx)
+    default_idx = allowed_subjects.index(saved_subject) if saved_subject in allowed_subjects else 0
+    subject = st.selectbox("과목", allowed_subjects, index=default_idx)
     if subject != saved_subject:
         cookie_manager.set("subject", subject, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie")
 else:
-    subject = list(SUBJECTS.keys())[0]
+    subject = allowed_subjects[0]
 
 PROBLEM_NAMES = SUBJECTS[subject]
 problems = list(PROBLEM_NAMES.keys())
