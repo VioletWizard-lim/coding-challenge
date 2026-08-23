@@ -438,7 +438,7 @@ with tab_stats:
         gc_set = sorted(set(
             (r["grade"], r["class"]) for r in raw if r.get("grade") and r.get("class")
         ))
-        gc_opts = [f"{g}학년 {c}반" for g, c in gc_set]
+        gc_opts = ["전체"] + [f"{g}학년 {c}반" for g, c in gc_set]
 
         if not gc_opts:
             st.info("반 정보가 없어요.")
@@ -461,12 +461,15 @@ with tab_stats:
                 if current_year not in year_opts_stats:
                     year_opts_stats = sorted(year_opts_stats + [current_year], reverse=True)
                 sel_year_stats = st.selectbox("연도", year_opts_stats, key="stats_year")
-            sel_g, sel_c = gc_set[gc_opts.index(sel_gc_stats)]
+            show_all_classes = sel_gc_stats == "전체"
+            if not show_all_classes:
+                sel_g, sel_c = gc_set[gc_opts.index(sel_gc_stats) - 1]
 
-            # 해당 반 데이터, 학생별·문제별 최신 점수
+            # 해당 반(또는 전체) 데이터, 학생별·문제별 최신 점수
             best = {}
+            name_class = {}
             for row in raw:
-                if row.get("grade") != sel_g or row.get("class") != sel_c:
+                if not show_all_classes and (row.get("grade") != sel_g or row.get("class") != sel_c):
                     continue
                 if row.get("subject") != sel_subject_stats:
                     continue
@@ -475,9 +478,11 @@ with tab_stats:
                 key = (row["name"], row["problem"])
                 if key not in best or row["submitted_at"] > best[key]["at"]:
                     best[key] = {"score": row["score_total"] or 0, "at": row["submitted_at"]}
+                if row.get("grade") and row.get("class"):
+                    name_class[row["name"]] = f"{row['grade']}학년 {row['class']}반"
 
             if not best:
-                st.info("해당 반의 채점 데이터가 없어요.")
+                st.info("해당 조건의 채점 데이터가 없어요.")
             else:
                 records = [{"학생": k[0], "문제": k[1], "점수": v["score"]} for k, v in best.items()]
                 df = pd.DataFrame(records)
@@ -486,6 +491,8 @@ with tab_stats:
                 cols = [p for p in all_problems if p in pivot.columns]
                 pivot = pivot[cols]
                 pivot.insert(0, "합계", pivot.sum(axis=1))
+                if show_all_classes:
+                    pivot.insert(0, "반", pivot.index.map(lambda n: name_class.get(n, "")))
 
                 # 학번 기준 정렬
                 pivot = pivot.reset_index()
@@ -497,7 +504,11 @@ with tab_stats:
                 st.markdown(f"### {sel_year_stats} · {sel_gc_stats} · {sel_subject_stats} 학생별 점수 현황")
                 row_h = 35
                 tbl_h = 38 + len(pivot) * row_h
-                num_cols = {col: st.column_config.NumberColumn(col, width="small") for col in pivot.columns}
+                num_cols = {
+                    col: (st.column_config.TextColumn(col, width="small") if col == "반"
+                          else st.column_config.NumberColumn(col, width="small"))
+                    for col in pivot.columns
+                }
                 st.dataframe(pivot, use_container_width=True, height=tbl_h, column_config=num_cols)
 
 with tab_teacher:
