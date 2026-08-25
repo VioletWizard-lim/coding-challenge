@@ -47,6 +47,7 @@ section[data-testid="stSidebar"] { display: none !important; }
 h3 { color: #1a1a2e !important; }
 label { color: #555 !important; }
 .stSelectbox > div > div { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
+.stSelectbox input { color: #1a1a2e !important; }
 .stTextArea textarea { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; font-family: 'Courier New', monospace !important; }
 .stTextInput input { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
 .stButton button {
