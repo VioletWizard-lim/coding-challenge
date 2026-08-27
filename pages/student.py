@@ -169,6 +169,14 @@ try:
             score_html = f'<div style="color:#4f46e5; font-weight:900; font-size:1.2rem;">{total}점</div>' if is_graded else '<div style="color:#aaa; font-size:0.95rem;">채점 중</div>'
             wrong_badge = f'<span style="background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; margin-left:8px;">⚠️ 오답</span>' if row.get("wrong_reason") else ""
 
+            deducted = []
+            if is_graded:
+                if row.get("score_function") is not None and row["score_function"] < 40:
+                    deducted.append("기능")
+                if row.get("score_understanding") is not None and row["score_understanding"] < 40:
+                    deducted.append("코드 설명")
+            deduction_badge = f'<span style="background:#fff7ed; color:#c2680d; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; margin-left:8px;">📉 감점: {" · ".join(deducted)}</span>' if deducted else ""
+
             desc_html = f'<div style="color:#aaa; font-size:0.85rem; margin-top:6px;">내 설명: {html.escape(row["description"])}</div>' if row.get("description") else ""
 
             st.markdown(f"""
@@ -177,7 +185,7 @@ try:
                         box-shadow:0 2px 6px rgba(0,0,0,0.04);">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>{wrong_badge}
+                        <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>{wrong_badge}{deduction_badge}
                         <span style="color:#aaa; font-size:0.85rem; margin-left:12px;">{time_str}</span>
                     </div>
                     {score_html}
