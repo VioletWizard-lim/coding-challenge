@@ -51,6 +51,10 @@ label { color: #555 !important; }
 .stSelectbox input { color: #1a1a2e !important; }
 .stTextArea textarea { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; font-family: 'Courier New', monospace !important; }
 .stTextInput input { background: white !important; border-color: #dde1f0 !important; color: #1a1a2e !important; }
+[data-testid="stAlertContentWarning"] p, [data-testid="stAlertContentWarning"] { color: #854d0e !important; }
+[data-testid="stAlertContentError"] p, [data-testid="stAlertContentError"] { color: #b91c1c !important; }
+[data-testid="stAlertContentSuccess"] p, [data-testid="stAlertContentSuccess"] { color: #15803d !important; }
+[data-testid="stAlertContentInfo"] p, [data-testid="stAlertContentInfo"] { color: #0369a1 !important; }
 .stButton button {
     background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
     color: white !important; border: none !important;
@@ -110,7 +114,7 @@ PROBLEM_NAMES = SUBJECTS[subject]
 problems = list(PROBLEM_NAMES.keys())
 problem = st.selectbox("문제 번호", problems, format_func=lambda p: p if PROBLEM_NAMES[p] == p else f"{p}. {PROBLEM_NAMES[p]}")
 code = st.text_area("코드 작성", height=250, placeholder="def solution():\n    ...")
-desc = st.text_input("코드 설명 (필수)", placeholder="코드에 대한 설명을 입력하세요")
+desc = st.text_area("코드 설명 (필수)", height=100, placeholder="코드에 대한 설명을 입력하세요")
 
 if "last_submitted_at" not in st.session_state:
     st.session_state.last_submitted_at = 0
