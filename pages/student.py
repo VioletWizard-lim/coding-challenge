@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone, timedelta
 import time
+import html
 import extra_streamlit_components as stx
 from problem_data import SUBJECTS
 
@@ -164,20 +165,24 @@ try:
         for row in res.data:
             total = row["score_total"] or 0
             time_str = to_kst(row["submitted_at"])
-            is_graded = total > 0
+            is_graded = row.get("score_total") is not None or bool(row.get("feedback"))
             score_html = f'<div style="color:#4f46e5; font-weight:900; font-size:1.2rem;">{total}점</div>' if is_graded else '<div style="color:#aaa; font-size:0.95rem;">채점 중</div>'
             wrong_badge = f'<span style="background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; margin-left:8px;">⚠️ 오답</span>' if row.get("wrong_reason") else ""
+
+            desc_html = f'<div style="color:#aaa; font-size:0.85rem; margin-top:6px;">내 설명: {html.escape(row["description"])}</div>' if row.get("description") else ""
 
             st.markdown(f"""
             <div style="background:white; border:1px solid #e0e4f0; border-radius:10px;
                         padding:14px 18px; margin-bottom:4px;
-                        display:flex; justify-content:space-between; align-items:center;
                         box-shadow:0 2px 6px rgba(0,0,0,0.04);">
-                <div>
-                    <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>{wrong_badge}
-                    <span style="color:#aaa; font-size:0.85rem; margin-left:12px;">{time_str}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <span style="color:#4f46e5; font-weight:700;">{row['problem']}</span>{wrong_badge}
+                        <span style="color:#aaa; font-size:0.85rem; margin-left:12px;">{time_str}</span>
+                    </div>
+                    {score_html}
                 </div>
-                {score_html}
+                {desc_html}
             </div>
             """, unsafe_allow_html=True)
 
@@ -207,8 +212,6 @@ try:
                         st.warning(f"💬 선생님 피드백: {row['feedback']}")
                 if row.get("wrong_reason"):
                     st.error(f"⚠️ 오답 이유: {row['wrong_reason']}")
-                if row.get("description"):
-                    st.caption(f"내 설명: {row['description']}")
                 st.code(row.get("code") or "", language="python")
     else:
         st.info("아직 제출한 과제가 없어요.")
