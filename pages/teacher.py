@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 import extra_streamlit_components as stx
 import streamlit.components.v1 as components
 from problem_data import SUBJECTS
-from code_replay import show_replay
+from code_replay import show_replay, summarize_log
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -145,6 +145,22 @@ def load_submissions():
         .order("submitted_at", desc=True) \
         .execute()
     return res.data
+
+@st.cache_data(ttl=600)
+def load_writing_stats(subject, year):
+    """작성 기록이 있는 제출물만 불러와 요약 통계로 바꿔서 반환 (기록 원본은 캐시에 남기지 않음)."""
+    res = supabase.table("submissions") \
+        .select("name, problem, grade, class, submitted_at, edit_log") \
+        .eq("subject", subject) \
+        .eq("year", year) \
+        .not_.is_("edit_log", "null") \
+        .execute()
+    rows = []
+    for r in res.data:
+        s = summarize_log(r.get("edit_log"))
+        if s:
+            rows.append({k: r.get(k) for k in ("name", "problem", "grade", "class", "submitted_at")} | s)
+    return rows
 
 def load_edit_log(submission_id):
     res = supabase.table("submissions") \
@@ -309,7 +325,7 @@ def render_grading(data, key_prefix=""):
                         st.toast(f"❌ 오류: {e}")
             st.markdown("---")
 
-tab_grade, tab_student, tab_stats, tab_teacher = st.tabs(["📋 채점 관리", "🔍 학생별 코드 확인", "📊 반별 현황", "👤 교사 추가"])
+tab_grade, tab_student, tab_stats, tab_writing, tab_teacher = st.tabs(["📋 채점 관리", "🔍 학생별 코드 확인", "📊 반별 현황", "⌨️ 작성 통계", "👤 교사 추가"])
 
 with tab_grade:
     try:
@@ -534,6 +550,98 @@ with tab_stats:
                     for col in pivot.columns
                 }
                 st.dataframe(pivot, use_container_width=True, height=tbl_h, column_config=num_cols)
+
+with tab_writing:
+    import pandas as pd
+
+    wc1, wc2, wc3 = st.columns([2, 1.3, 2])
+    with wc1:
+        sel_subject_w = st.selectbox("과목", list(SUBJECTS.keys()), key="writing_subject")
+    with wc2:
+        current_year = datetime.now().year
+        sel_year_w = st.selectbox("연도", list(range(current_year, 2025, -1)), key="writing_year")
+
+    try:
+        w_rows = load_writing_stats(sel_subject_w, sel_year_w)
+    except Exception as e:
+        st.error(f"데이터 로드 오류: {e}")
+        w_rows = []
+
+    if not w_rows:
+        st.info("해당 조건에 작성 기록이 있는 제출물이 없어요. (기록 기능 도입 이전 제출물은 집계되지 않아요.)")
+    else:
+        w_gc_set = sorted({(r["grade"], r["class"]) for r in w_rows if r.get("grade") and r.get("class")})
+        w_gc_opts = ["전체"] + [f"{g}학년 {c}반" for g, c in w_gc_set]
+        with wc3:
+            sel_gc_w = st.selectbox("반 선택", w_gc_opts, key="writing_gc")
+        metric = st.radio("지표", ["붙여넣기 비율 (%)", "실제 작업 시간 (분)"], horizontal=True, key="writing_metric")
+
+        if sel_gc_w != "전체":
+            g_sel, c_sel = w_gc_set[w_gc_opts.index(sel_gc_w) - 1]
+            w_rows = [r for r in w_rows if r.get("grade") == g_sel and r.get("class") == c_sel]
+
+        # 같은 문제를 여러 번 제출하면 기록이 이어서 쌓이므로 문제별 최신 제출만 사용
+        latest = {}
+        w_name_class = {}
+        for r in w_rows:
+            key = (r["name"], r["problem"])
+            if key not in latest or r["submitted_at"] > latest[key]["submitted_at"]:
+                latest[key] = r
+            if r.get("grade") and r.get("class"):
+                w_name_class[r["name"]] = f"{r['grade']}학년 {r['class']}반"
+
+        agg = {}  # (학생, 대번호) -> 합계
+        for (name, prob), r in latest.items():
+            unit = prob.split("-")[0]
+            for k in [(name, unit), (name, "전체")]:
+                a = agg.setdefault(k, {"typed": 0, "pasted": 0, "active_ms": 0})
+                a["typed"] += r["typed"]; a["pasted"] += r["pasted"]; a["active_ms"] += r["active_ms"]
+
+        def metric_value(a):
+            if metric.startswith("붙여넣기"):
+                total_chars = a["typed"] + a["pasted"]
+                return round(a["pasted"] / total_chars * 100) if total_chars else None
+            return round(a["active_ms"] / 60000, 1)
+
+        units = sorted({u for (_, u) in agg if u != "전체"}, key=lambda u: int(u) if u.isdigit() else 999)
+        try:
+            users_res3 = supabase.table("users").select("id, name").eq("role", "student").execute()
+            w_sid_map = {r["name"]: r["id"][1:6] for r in users_res3.data if r.get("id") and len(r["id"]) >= 6}
+        except:
+            w_sid_map = {}
+        names = sorted({n for (n, _) in agg}, key=lambda n: (w_sid_map.get(n, ""), n))
+
+        table = pd.DataFrame(
+            [[metric_value(agg[(n, u)]) if (n, u) in agg else None for u in ["전체"] + units] for n in names],
+            index=[f"{w_sid_map.get(n, '')} {n}".strip() for n in names],
+            columns=["전체"] + [f"{u}번" for u in units],
+        ).astype(float)
+        table.index.name = "학생"
+        if sel_gc_w == "전체":
+            table.insert(0, "반", [w_name_class.get(n, "") for n in names])
+
+        is_ratio = metric.startswith("붙여넣기")
+        num_cols_w = [c for c in table.columns if c != "반"]
+        # 표시용 문자열 표 (빈 칸은 "-"), 강조는 숫자 표 기준
+        display = table.copy()
+        for col in num_cols_w:
+            display[col] = table[col].map(lambda v: "-" if pd.isna(v) else (f"{v:.0f}%" if is_ratio else f"{v:.1f}"))
+        styler = display.style
+        if is_ratio:
+            styler = styler.apply(
+                lambda s: ["background-color: #fee2e2; color: #b91c1c; font-weight: 700"
+                           if pd.notna(v) and v >= 50 else "" for v in table[s.name]],
+                subset=num_cols_w,
+            )
+
+        st.markdown(f"### {sel_year_w} · {sel_gc_w} · {sel_subject_w} 작성 통계 — {metric}")
+        st.caption(
+            "열은 대번호(주제)별 합산, '전체'는 모든 문제 합산이에요. 문제마다 가장 최근 제출의 기록만 사용해요. "
+            + ("붙여넣기 비율 = 붙여넣은 글자 수 ÷ (직접 입력 + 붙여넣기) · 50% 이상은 빨간색으로 표시"
+               if is_ratio else "실제 작업 시간 = 30초 이상 멈춘 구간을 뺀 시간")
+            + f" · 집계된 제출물 {len(latest)}건"
+        )
+        st.dataframe(styler, use_container_width=True, height=38 + len(table) * 35)
 
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
