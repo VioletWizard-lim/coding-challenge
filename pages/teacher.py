@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 import extra_streamlit_components as stx
 import streamlit.components.v1 as components
 from problem_data import SUBJECTS
-from code_replay import show_replay, summarize_log
+from code_replay import show_replay, summarize_log, valid_entries
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -150,7 +150,7 @@ def load_submissions():
 def load_writing_stats(subject, year):
     """작성 기록이 있는 제출물만 불러와 요약 통계로 바꿔서 반환 (기록 원본은 캐시에 남기지 않음)."""
     res = supabase.table("submissions") \
-        .select("name, problem, grade, class, submitted_at, edit_log") \
+        .select("id, name, problem, grade, class, submitted_at, score_total, edit_log") \
         .eq("subject", subject) \
         .eq("year", year) \
         .not_.is_("edit_log", "null") \
@@ -159,8 +159,19 @@ def load_writing_stats(subject, year):
     for r in res.data:
         s = summarize_log(r.get("edit_log"))
         if s:
-            rows.append({k: r.get(k) for k in ("name", "problem", "grade", "class", "submitted_at")} | s)
+            rows.append({k: r.get(k) for k in ("id", "name", "problem", "grade", "class", "submitted_at", "score_total")} | s)
     return rows
+
+def load_raw_logs(subject, year, ids):
+    """원본 로그 CSV용: 지정한 제출물들의 edit_log 원본 (캐시하지 않음)."""
+    res = supabase.table("submissions") \
+        .select("id, edit_log") \
+        .eq("subject", subject) \
+        .eq("year", year) \
+        .not_.is_("edit_log", "null") \
+        .execute()
+    wanted = set(ids)
+    return {r["id"]: r.get("edit_log") for r in res.data if r["id"] in wanted}
 
 def load_edit_log(submission_id):
     res = supabase.table("submissions") \
@@ -642,6 +653,107 @@ with tab_writing:
             + f" · 집계된 제출물 {len(latest)}건"
         )
         st.dataframe(styler, use_container_width=True, height=38 + len(table) * 35)
+
+        # ── CSV 내보내기 ──────────────────────────────────
+        st.markdown("#### 📥 기록 데이터 CSV 내보내기")
+        anon = st.checkbox("이름·학번 대신 익명 ID(S001…)로 내보내기 (연구용)", key="csv_anon")
+        st.caption("지금 선택한 과목·연도·반의 제출물이 대상이에요 (재제출 포함 전체). "
+                   "엑셀에서 수식이 실행되지 않도록 =, +, -, @로 시작하는 글자 앞에는 '를 붙였어요.")
+
+        def kst_full(utc_str):
+            try:
+                dt = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt.astimezone(KST).strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                return utc_str or ""
+
+        def csv_safe(v):
+            return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
+
+        def to_csv(df):
+            cell_map = getattr(df, "map", None) or df.applymap  # pandas < 2.1 호환
+            return cell_map(csv_safe).to_csv(index=False).encode("utf-8-sig")  # BOM: 엑셀에서 한글 깨짐 방지
+
+        csv_names = sorted({r["name"] for r in w_rows}, key=lambda n: (w_sid_map.get(n, ""), n))
+        anon_id = {n: f"S{i + 1:03d}" for i, n in enumerate(csv_names)}
+
+        def who(name):
+            if anon:
+                return {"익명ID": anon_id[name]}
+            return {"학번": w_sid_map.get(name, ""), "이름": name}
+
+        latest_ids = {r["id"] for r in latest.values()}
+        summary_rows = []
+        for r in sorted(w_rows, key=lambda r: (w_sid_map.get(r["name"], ""), r["name"], r["submitted_at"])):
+            typed_paste = r["typed"] + r["pasted"]
+            summary_rows.append({
+                "제출ID": r["id"], **who(r["name"]),
+                "반": "" if anon else w_name_class.get(r["name"], ""),
+                "과목": sel_subject_w, "연도": sel_year_w,
+                "문제": r["problem"], "대번호": r["problem"].split("-")[0],
+                "제출시각": kst_full(r["submitted_at"]),
+                "최신제출": "Y" if r["id"] in latest_ids else "N",
+                "총작성시간(초)": round(r["total_ms"] / 1000),
+                "실제작업시간(초)": round(r["active_ms"] / 1000),
+                "직접입력(자)": r["typed"],
+                "붙여넣기(자)": r["pasted"],
+                "붙여넣기횟수": r["paste_count"],
+                "붙여넣기비율(%)": round(r["pasted"] / typed_paste * 100) if typed_paste else "",
+                "삭제수정횟수": r["edit_count"],
+                "창이탈횟수": r["away_count"],
+                "창이탈시간(초)": round(r["away_ms"] / 1000),
+                "점수": "" if r.get("score_total") is None else r["score_total"],
+            })
+        if anon:
+            for row in summary_rows:
+                row.pop("반")
+
+        file_base = f"작성기록_{sel_year_w}_{sel_subject_w}_{sel_gc_w.replace(' ', '')}{'_익명' if anon else ''}"
+        dc1, dc2 = st.columns(2)
+        with dc1:
+            st.download_button(
+                f"⬇️ 제출물별 요약 CSV ({len(summary_rows)}건)",
+                data=to_csv(pd.DataFrame(summary_rows)),
+                file_name=f"{file_base}_요약.csv", mime="text/csv",
+                use_container_width=True, key="dl_summary",
+            )
+        with dc2:
+            # 원본 로그는 용량이 커서 버튼을 눌렀을 때만 만듦
+            # 필터나 제출물 목록이 바뀌면 다시 만들도록
+            raw_key = (sel_subject_w, sel_year_w, sel_gc_w, anon, frozenset(r["id"] for r in w_rows))
+            if st.session_state.get("raw_csv_key") != raw_key:
+                if st.button("📦 이벤트 원본 로그 CSV 만들기", use_container_width=True, key="build_raw"):
+                    with st.spinner("원본 로그를 불러오는 중..."):
+                        logs = load_raw_logs(sel_subject_w, sel_year_w, [r["id"] for r in w_rows])
+                        kind_name = {"i": "입력", "d": "삭제", "p": "붙여넣기", "x": "잘라내기",
+                                     "u": "되돌리기", "o": "기타", "b": "창이탈", "f": "창복귀"}
+                        events = []
+                        for r in w_rows:
+                            log = valid_entries(logs.get(r["id"]))
+                            t0 = log[0][0] if log else 0
+                            for i, e in enumerate(log):
+                                has_pos = len(e) > 6
+                                events.append({
+                                    "제출ID": r["id"], **who(r["name"]), "문제": r["problem"],
+                                    "순번": i + 1, "시각(ms)": e[0], "경과(초)": round((e[0] - t0) / 1000, 3),
+                                    "종류": e[1], "종류명": kind_name.get(e[1], e[1]),
+                                    "시작줄": e[2] if has_pos else "", "시작칸": e[3] if has_pos else "",
+                                    "끝줄": e[4] if has_pos else "", "끝칸": e[5] if has_pos else "",
+                                    "텍스트": e[6] if has_pos and isinstance(e[6], str) else "",
+                                })
+                    st.session_state.raw_csv_key = raw_key
+                    st.session_state.raw_csv = to_csv(pd.DataFrame(events))
+                    st.session_state.raw_csv_count = len(events)
+                    st.rerun()
+            else:
+                st.download_button(
+                    f"⬇️ 이벤트 원본 로그 CSV ({st.session_state.raw_csv_count}행)",
+                    data=st.session_state.raw_csv,
+                    file_name=f"{file_base}_원본로그.csv", mime="text/csv",
+                    use_container_width=True, key="dl_raw",
+                )
 
 with tab_teacher:
     st.markdown("### 👤 교사 계정 추가")
