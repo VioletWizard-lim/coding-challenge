@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<style>
+  body { margin: 0; font-family: "Noto Sans KR", system-ui, sans-serif; color: #1a1a2e; background: #fff; }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; margin-bottom: 8px; }
+  .stats b { font-variant-numeric: tabular-nums; color: #4f46e5; }
+  .warn, .warn b { color: #b91c1c; }
+  .CodeMirror { height: 340px; border: 1px solid #dde1f0; border-radius: 10px; font-size: 15px; }
+  .CodeMirror-gutters { background: #f5f7fa; border-right: 1px solid #e0e4f0; }
+  .pasted { background: #ffe1a8; }
+  .ctrl { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 14px; }
+  button, select { font: inherit; padding: 5px 12px; border-radius: 8px; border: 1px solid #4f46e5; background: #fff; color: #4f46e5; }
+  #play { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; border: none; font-weight: 700; }
+  #seek { accent-color: #4f46e5; }
+  #timeline { position: relative; flex: 1; height: 26px; }
+  #seek { width: 100%; margin: 0; position: absolute; top: 4px; }
+  .mk { position: absolute; top: 0; width: 3px; height: 8px; border-radius: 1px; pointer-events: none; }
+  .mk.p { background: #e08a00; } .mk.b { background: #b3261e; }
+  #now { min-width: 150px; text-align: right; font-variant-numeric: tabular-nums; color: #5b6b7b; }
+  .legend { font-size: 12px; color: #5b6b7b; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="stats" id="stats"></div>
+<textarea id="ed"></textarea>
+<div class="ctrl">
+  <button id="play">재생</button>
+  <select id="speed"><option value="1">1배</option><option value="4" selected>4배</option><option value="16">16배</option><option value="64">64배</option></select>
+  <label><input type="checkbox" id="skip" checked> 멈춘 시간 줄이기</label>
+  <div id="timeline"><input type="range" id="seek" min="0" value="0"></div>
+  <span id="now"></span>
+</div>
+<div class="legend">주황 표시: 붙여넣기 · 빨간 표시: 다른 창으로 이동 · 코드의 노란 배경: 붙여넣은 부분</div>
+
+<script>
+const D = __DATA__;                       // {init, code, log}
+const all = (Array.isArray(D.log) ? D.log : []).filter(e => Array.isArray(e) && typeof e[0] === "number");
+const ed = all.filter(e => e.length > 2 && typeof e[6] === "string");  // 문서 변경 이벤트만
+const cm = CodeMirror.fromTextArea(document.getElementById("ed"),
+  { mode: "python", lineNumbers: true, readOnly: true });
+
+// ---- 통계 ----
+const fmt = ms => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}분 ${s % 60}초`; };
+function stats() {
+  if (!all.length) return "기록이 없어요. 에디터 밖에서 작성해 붙여넣었거나 기록 기능 이전 제출일 수 있어요.";
+  const t0 = all[0][0], t1 = all[all.length - 1][0];
+  let active = 0, away = 0, awayCnt = 0, lastBlur = null;
+  for (let i = 1; i < all.length; i++) { const g = all[i][0] - all[i - 1][0]; if (g < 30000) active += g; }
+  for (const e of all) {
+    if (e[1] === "b" && lastBlur === null) { lastBlur = e[0]; awayCnt++; }
+    if (e[1] === "f" && lastBlur !== null) { away += e[0] - lastBlur; lastBlur = null; }
+  }
+  const pastes = ed.filter(e => e[1] === "p");
+  const pasteChars = pastes.reduce((s, e) => s + e[6].length, 0);
+  const typed = ed.filter(e => e[1] === "i").reduce((s, e) => s + e[6].length, 0);
+  const dels = ed.filter(e => e[1] === "d" || e[1] === "x").length;
+  const ratio = (pasteChars + typed) ? Math.round(pasteChars / (pasteChars + typed) * 100) : 0;
+  return [
+    `총 작성 시간 <b>${fmt(t1 - t0)}</b>`,
+    `실제 작업 <b>${fmt(active)}</b>`,
+    `직접 입력 <b>${typed}</b>자`,
+    `삭제·수정 <b>${dels}</b>회`,
+    `<span class="${ratio >= 50 ? "warn" : ""}">붙여넣기 <b>${pastes.length}</b>회 (입력량의 <b>${ratio}%</b>)</span>`,
+    `<span class="${awayCnt ? "warn" : ""}">창 이탈 <b>${awayCnt}</b>회 (<b>${fmt(away)}</b>)</span>`
+  ].map(s => `<span>${s}</span>`).join("");
+}
+document.getElementById("stats").innerHTML = stats();
+
+// ---- 재생 ----
+let idx = 0, timer = null;
+const seek = document.getElementById("seek");
+seek.max = ed.length;
+
+function apply(e) {
+  const from = { line: e[2], ch: e[3] };
+  cm.replaceRange(e[6], from, { line: e[4], ch: e[5] });
+  if (e[1] === "p" && e[6]) {
+    const lines = e[6].split("\n");
+    const end = { line: from.line + lines.length - 1,
+                  ch: (lines.length === 1 ? from.ch : 0) + lines[lines.length - 1].length };
+    cm.markText(from, end, { className: "pasted" });
+  }
+}
+function goTo(n) {
+  cm.operation(() => {
+    cm.setValue(D.init || "");
+    cm.getAllMarks().forEach(m => m.clear());
+    for (let i = 0; i < n; i++) apply(ed[i]);
+  });
+  idx = n; show();
+}
+function show() {
+  seek.value = idx;
+  const t0 = all.length ? all[0][0] : 0;
+  const t = idx > 0 ? ed[idx - 1][0] - t0 : 0;
+  document.getElementById("now").textContent = `${idx} / ${ed.length} · ${fmt(t)}`;
+}
+function step() {
+  if (idx >= ed.length) { stop(); return; }
+  apply(ed[idx]); idx++; show();
+  if (idx >= ed.length) { stop(); return; }
+  let gap = (ed[idx][0] - ed[idx - 1][0]) / +document.getElementById("speed").value;
+  if (document.getElementById("skip").checked) gap = Math.min(gap, 600);
+  timer = setTimeout(step, Math.max(gap, 8));
+}
+function stop() { clearTimeout(timer); timer = null; document.getElementById("play").textContent = "재생"; }
+document.getElementById("play").onclick = () => {
+  if (timer) return stop();
+  if (idx >= ed.length) goTo(0);
+  document.getElementById("play").textContent = "일시정지"; step();
+};
+seek.oninput = () => { stop(); goTo(+seek.value); };
+
+// 타임라인 표시 (이벤트 순서 기준)
+const tl = document.getElementById("timeline");
+ed.forEach((e, i) => { if (e[1] === "p") addMk(i, "p"); });
+let k = 0;
+all.forEach(e => { if (e.length > 2) k++; else if (e[1] === "b") addMk(k, "b"); });
+function addMk(i, cls) {
+  const d = document.createElement("div"); d.className = "mk " + cls;
+  d.style.left = `calc(${(ed.length ? i / ed.length : 0) * 100}% - 1px)`; tl.appendChild(d);
+}
+goTo(0);
+</script>
+</body>
+</html>
