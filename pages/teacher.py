@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 import extra_streamlit_components as stx
 import streamlit.components.v1 as components
 from problem_data import SUBJECTS
+from code_replay import show_replay
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -131,13 +132,26 @@ window.parent.document.addEventListener('keydown', function(e) {
 }, true);
 </script>""", height=0)
 
+# edit_log(작성 기록)는 용량이 커서 목록에서는 빼고, 재생할 때 한 건씩 불러옴
+SUBMISSION_COLUMNS = (
+    "id, name, subject, problem, code, description, grade, class, submitted_at, "
+    "score_function, score_understanding, score_challenge, score_total, feedback, wrong_reason"
+)
+
 @st.cache_data(ttl=3600)
 def load_submissions():
     res = supabase.table("submissions") \
-        .select("*") \
+        .select(SUBMISSION_COLUMNS) \
         .order("submitted_at", desc=True) \
         .execute()
     return res.data
+
+def load_edit_log(submission_id):
+    res = supabase.table("submissions") \
+        .select("code, init_code, edit_log") \
+        .eq("id", submission_id) \
+        .execute()
+    return res.data[0] if res.data else None
 
 @st.fragment(run_every=15)
 def notify_new_submissions():
@@ -411,6 +425,16 @@ with tab_student:
                     if row.get("description"):
                         st.caption(f"설명: {row['description']}")
                     st.code(row.get("code") or "", language="python")
+                    if st.toggle("▶ 작성 과정 재생", key=f"replay_{row['id']}"):
+                        try:
+                            rec = load_edit_log(row["id"])
+                        except Exception as e:
+                            rec = None
+                            st.error(f"작성 기록을 불러오지 못했어요: {e}")
+                        if rec is not None and rec.get("edit_log"):
+                            show_replay(rec)
+                        elif rec is not None:
+                            st.info("이 제출물은 작성 기록이 없어요. (작성 기록 기능 도입 이전에 제출했거나 기록 없이 제출된 코드예요.)")
 
 with tab_stats:
     import pandas as pd

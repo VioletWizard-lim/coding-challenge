@@ -5,6 +5,7 @@ import time
 import html
 import extra_streamlit_components as stx
 from problem_data import SUBJECTS
+from code_replay import code_recorder
 
 st.set_page_config(page_title="과제 제출", page_icon="📝", layout="centered")
 
@@ -113,23 +114,30 @@ else:
 PROBLEM_NAMES = SUBJECTS[subject]
 problems = list(PROBLEM_NAMES.keys())
 problem = st.selectbox("문제 번호", problems, format_func=lambda p: p if PROBLEM_NAMES[p] == p else f"{p}. {PROBLEM_NAMES[p]}")
-code = st.text_area("코드 작성", height=250, placeholder="def solution():\n    ...")
 desc = st.text_area("코드 설명 (필수)", height=100, placeholder="코드에 대한 설명을 입력하세요")
+st.caption("아래 에디터에서 코드를 작성하고 '실행'으로 확인한 뒤, 에디터의 '제출' 버튼을 누르세요. 작성 중인 코드는 새로고침해도 유지돼요.")
+
+# 학생·과목·문제별로 기록을 따로 보관 (key가 바뀌면 에디터도 새로 뜸)
+result = code_recorder(f"{user['id']}_{subject}_{problem}", key=f"rec_{subject}_{problem}")
 
 if "last_submitted_at" not in st.session_state:
     st.session_state.last_submitted_at = 0
+if "handled_nonces" not in st.session_state:
+    st.session_state.handled_nonces = set()
 
-elapsed = time.time() - st.session_state.last_submitted_at
 cooldown = 5
-is_cooling = elapsed < cooldown
 
-btn_label = f"⏳ {int(cooldown - elapsed) + 1}초 후 제출 가능" if is_cooling else "🚀 제출하기"
-
-if st.button(btn_label, use_container_width=True, disabled=is_cooling):
+# 컴포넌트 값은 rerun 후에도 남아 있으므로 nonce로 한 번만 처리
+if result and result.get("nonce") not in st.session_state.handled_nonces:
+    st.session_state.handled_nonces.add(result.get("nonce"))
+    code = result.get("code") or ""
+    elapsed = time.time() - st.session_state.last_submitted_at
     if not code.strip():
         st.warning("코드를 입력하세요!")
     elif not desc.strip():
-        st.warning("코드 설명을 입력하세요!")
+        st.warning("코드 설명을 입력한 뒤 에디터의 '제출' 버튼을 다시 눌러주세요!")
+    elif elapsed < cooldown:
+        st.warning(f"⏳ {int(cooldown - elapsed) + 1}초 후에 다시 제출해주세요.")
     else:
         try:
             if subject == "프로그래밍":
@@ -148,6 +156,8 @@ if st.button(btn_label, use_container_width=True, disabled=is_cooling):
                 "grade": sub_grade,
                 "class": sub_class,
                 "year": datetime.now().year,
+                "init_code": result.get("init") or "",
+                "edit_log": result.get("log") or [],
             }).execute()
             st.session_state.last_submitted_at = time.time()
             st.success(f"✅ 제출 완료! ({problem})")

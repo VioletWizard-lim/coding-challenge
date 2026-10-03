@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<style>
+  body { margin: 0; font-family: "Noto Sans KR", system-ui, sans-serif; color: #1a1a2e; background: transparent; }
+  .CodeMirror { height: 360px; border: 1px solid #dde1f0; border-radius: 10px; font-size: 15px; background: #fff; color: #1a1a2e; }
+  .CodeMirror-gutters { background: #f5f7fa; border-right: 1px solid #e0e4f0; }
+  .bar { display: flex; gap: 8px; margin: 10px 0; align-items: center; }
+  button { font: inherit; font-weight: 700; padding: 8px 18px; border-radius: 10px; cursor: pointer; }
+  #run { background: #fff; color: #4f46e5; border: 1px solid #4f46e5; }
+  #submit { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; border: none; }
+  button:disabled { opacity: .5; cursor: wait; }
+  #msg { font-size: 13px; color: #6b7280; margin-left: auto; }
+  pre#out { background: #fff; border: 1px solid #e0e4f0; border-radius: 10px; padding: 10px; min-height: 60px; max-height: 180px;
+            overflow: auto; margin: 0; font-size: 14px; white-space: pre-wrap; color: #1a1a2e; }
+  pre#out.err { color: #b91c1c; }
+</style>
+</head>
+<body>
+<textarea id="ed"></textarea>
+<div class="bar">
+  <button id="run">실행</button>
+  <button id="submit">제출</button>
+  <span id="msg"></span>
+</div>
+<pre id="out">실행 결과가 여기에 나옵니다.</pre>
+
+<script>
+// ---- Streamlit 통신 (npm 라이브러리 없이 최소 구현) ----
+const send = (type, data = {}) =>
+  window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type }, data), "*");
+const setHeight = () => send("streamlit:setFrameHeight", { height: document.body.scrollHeight + 10 });
+
+let cm = null, state = null, storeKey = null;
+
+function save() {
+  if (!storeKey) return;
+  try { localStorage.setItem(storeKey, JSON.stringify({ ...state, code: cm.getValue() })); } catch (e) {}
+}
+
+function init(args) {
+  storeKey = "code_rec:" + (args.storage_key || "default");
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(storeKey)); } catch (e) {}
+  // state.log 항목: [시각(ms), 종류, fromLine, fromCh, toLine, toCh, 입력텍스트]
+  // 종류: i=입력 d=삭제 p=붙여넣기 x=잘라내기 u=되돌리기 o=기타 / b=창 이탈 f=창 복귀
+  state = saved || { init: args.initial_code || "", log: [] };
+
+  cm = CodeMirror.fromTextArea(document.getElementById("ed"), {
+    mode: "python", lineNumbers: true, indentUnit: 4, tabSize: 4,
+    extraKeys: { Tab: c => c.replaceSelection("    ") }
+  });
+  cm.setValue(saved ? saved.code : state.init);   // setValue는 기록 시작 전이라 로그에 안 남음
+
+  const kind = o => o === "+input" ? "i" : o === "+delete" ? "d" : o === "paste" ? "p"
+                  : o === "cut" ? "x" : (o === "undo" || o === "redo") ? "u" : "o";
+  cm.on("change", (_, c) => {
+    if (c.origin === "setValue") return;
+    state.log.push([Date.now(), kind(c.origin), c.from.line, c.from.ch, c.to.line, c.to.ch, c.text.join("\n")]);
+    save();
+  });
+  document.addEventListener("visibilitychange", () => {
+    state.log.push([Date.now(), document.hidden ? "b" : "f"]); save();
+  });
+  window.addEventListener("blur", () => { state.log.push([Date.now(), "b"]); save(); });
+  window.addEventListener("focus", () => { state.log.push([Date.now(), "f"]); save(); });
+  setHeight();
+}
+
+window.addEventListener("message", e => {
+  if (e.data && e.data.type === "streamlit:render" && !cm) init(e.data.args || {});
+});
+send("streamlit:componentReady", { apiVersion: 1 });
+
+// ---- 제출 ----
+document.getElementById("submit").onclick = () => {
+  save();
+  send("streamlit:setComponentValue", {
+    dataType: "json",
+    value: { code: cm.getValue(), init: state.init, log: state.log, nonce: Date.now() + "-" + Math.random() }
+  });
+  document.getElementById("msg").textContent = "제출 요청을 보냈어요.";
+};
+
+// ---- 브라우저 안에서 파이썬 실행 (Pyodide, 첫 실행 때만 로딩) ----
+let pyodide = null;
+async function loadPy() {
+  await new Promise((ok, fail) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js";
+    s.onload = ok; s.onerror = fail; document.head.appendChild(s);
+  });
+  pyodide = await loadPyodide();
+  pyodide.runPython("import builtins, js\nbuiltins.input = lambda p='': (js.prompt(str(p)) or '')");
+}
+document.getElementById("run").onclick = async () => {
+  const btn = document.getElementById("run"), out = document.getElementById("out");
+  btn.disabled = true; out.className = "";
+  try {
+    if (!pyodide) { out.textContent = "파이썬을 불러오는 중이에요 (처음 한 번만 몇 초 걸려요)…"; await loadPy(); }
+    let buf = "";
+    pyodide.setStdout({ batched: s => buf += s + "\n" });
+    pyodide.setStderr({ batched: s => buf += s + "\n" });
+    await pyodide.runPythonAsync(cm.getValue());
+    out.textContent = buf || "(출력 없음)";
+  } catch (err) {
+    out.className = "err";
+    out.textContent = String(err.message || err).split("\n").slice(-4).join("\n");
+  }
+  btn.disabled = false; setHeight();
+};
+</script>
+</body>
+</html>
