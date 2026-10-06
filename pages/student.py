@@ -56,6 +56,8 @@ label { color: #555 !important; }
 [data-testid="stAlertContentError"] p, [data-testid="stAlertContentError"] { color: #b91c1c !important; }
 [data-testid="stAlertContentSuccess"] p, [data-testid="stAlertContentSuccess"] { color: #15803d !important; }
 [data-testid="stAlertContentInfo"] p, [data-testid="stAlertContentInfo"] { color: #0369a1 !important; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color: #6b7280 !important; }
+.stTextArea textarea::placeholder, .stTextInput input::placeholder { color: #9ca3af !important; }
 .stButton button {
     background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
     color: white !important; border: none !important;
