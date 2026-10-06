@@ -407,15 +407,11 @@ with tab_student:
         num = student_id_map.get(name, "")
         return f"{num} {name}" if num else name
 
-    student_names = sorted(set(r["name"] for r in all_data3), key=student_label)
-
-    if not student_names:
+    if not all_data3:
         st.info("아직 제출된 데이터가 없어요.")
     else:
-        sc1, sc2, sc3 = st.columns([2, 1.5, 2.5])
+        sc1, sc2, sc3 = st.columns([1.5, 2, 2.5])
         with sc1:
-            sel_student = st.selectbox("학생 선택", student_names, format_func=student_label, key="sel_student")
-        with sc2:
             subject_options_st = ["전체"] + list(SUBJECTS.keys())
             if "sel_subject_student" not in st.session_state:
                 saved_subject_cookie = cookie_manager.get("subject")
@@ -424,6 +420,15 @@ with tab_student:
             sel_subject_st = st.selectbox("과목", subject_options_st, key="sel_subject_student")
             if cookie_manager.get("subject") != sel_subject_st:
                 cookie_manager.set("subject", sel_subject_st, expires_at=datetime.now() + timedelta(days=30), key="set_subject_cookie_student")
+        with sc2:
+            # 선택한 과목에 제출한 학생만 목록에 표시
+            student_names = sorted(
+                {r["name"] for r in all_data3 if sel_subject_st == "전체" or r.get("subject") == sel_subject_st},
+                key=student_label,
+            )
+            # 과목마다 선택 상자를 따로 둬서, 과목을 바꾸면 목록과 선택이 함께 바뀜
+            sel_student = st.selectbox("학생 선택", student_names, format_func=student_label,
+                                       key=f"sel_student_{sel_subject_st}")
         with sc3:
             problems_all = ["전체"] + list(SUBJECTS[sel_subject_st].keys()) if sel_subject_st != "전체" \
                 else ["전체"] + sorted({p for probs in SUBJECTS.values() for p in probs})
