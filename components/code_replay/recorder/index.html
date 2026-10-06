@@ -33,7 +33,23 @@
 // ---- Streamlit 통신 (npm 라이브러리 없이 최소 구현) ----
 const send = (type, data = {}) =>
   window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type }, data), "*");
-const setHeight = () => send("streamlit:setFrameHeight", { height: document.body.scrollHeight + 10 });
+// Streamlit은 높이가 0인 컴포넌트를 숨기고(폭 0), 숨겨진 동안엔 내용 높이도 0으로 재져서
+// 한 번만 알리면 iframe이 10px로 굳는 경우가 있었음.
+// → 0으로 재지면 임시 높이를 보내 보이게 만들고, 실제 크기는 ResizeObserver로 다시 맞춤.
+const PROVISIONAL_HEIGHT = 520;
+let lastHeight = 0;
+const setHeight = (force = false) => {
+  const h = Math.ceil(document.body.scrollHeight);
+  if (h <= 0) {
+    if (lastHeight === 0) { lastHeight = -1; send("streamlit:setFrameHeight", { height: PROVISIONAL_HEIGHT }); }
+    return;
+  }
+  if (!force && h === lastHeight) return;
+  lastHeight = h;
+  send("streamlit:setFrameHeight", { height: h + 10 });
+};
+new ResizeObserver(() => setHeight()).observe(document.body);
+window.addEventListener("load", () => setHeight(true));
 
 let cm = null, state = null, storeKey = null;
 
@@ -72,7 +88,9 @@ function init(args) {
 }
 
 window.addEventListener("message", e => {
-  if (e.data && e.data.type === "streamlit:render" && !cm) init(e.data.args || {});
+  if (!e.data || e.data.type !== "streamlit:render") return;
+  if (!cm) init(e.data.args || {});
+  setHeight(true);   // 다시 그려질 때마다 높이를 다시 알림
 });
 send("streamlit:componentReady", { apiVersion: 1 });
 
