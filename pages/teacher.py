@@ -473,10 +473,11 @@ with tab_stats:
 
     try:
         res = supabase.table("submissions") \
-            .select("name, problem, subject, score_total, submitted_at, grade, class, year") \
-            .gt("score_total", 0) \
+            .select("name, problem, subject, score_total, wrong_reason, submitted_at, grade, class, year") \
+            .or_("score_total.not.is.null,wrong_reason.not.is.null") \
             .execute()
-        raw = res.data
+        # 채점됨(0점 포함) 또는 오답 처리된 제출물 (오답 이유가 빈 문자열이면 오답 아님으로 봄)
+        raw = [r for r in res.data if r.get("score_total") is not None or r.get("wrong_reason")]
     except Exception as e:
         st.error(f"데이터 로드 오류: {e}")
         raw = []
@@ -547,6 +548,11 @@ with tab_stats:
                 cols = [p for p in all_problems if p in pivot.columns]
                 pivot = pivot[cols]
                 pivot.insert(0, "합계", pivot.sum(axis=1))
+                # 0점 = 문제별 최신 채점 결과가 0점이거나 오답 처리된 문제 (미제출·채점 전은 제외)
+                zero_counts = {}
+                for (name, _), v in best.items():
+                    zero_counts[name] = zero_counts.get(name, 0) + (v["score"] == 0)
+                pivot.insert(0, "0점", pivot.index.map(lambda n: zero_counts.get(n, 0)))
                 if show_all_classes:
                     pivot.insert(0, "반", pivot.index.map(lambda n: name_class.get(n, "")))
 
@@ -558,6 +564,7 @@ with tab_stats:
                 pivot = pivot.set_index("학생")
 
                 st.markdown(f"### {sel_year_stats} · {sel_gc_stats} · {sel_subject_stats} 학생별 점수 현황")
+                st.caption("0점: 문제별 최신 채점 결과가 0점이거나 오답 처리된 문제 수 (미제출·채점 전 문제는 세지 않아요)")
                 row_h = 35
                 tbl_h = 38 + len(pivot) * row_h
                 num_cols = {
