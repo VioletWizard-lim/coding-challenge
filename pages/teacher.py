@@ -547,12 +547,10 @@ with tab_stats:
                 pivot = df.pivot_table(index="학생", columns="문제", values="점수", aggfunc="sum", fill_value=0)
                 cols = [p for p in all_problems if p in pivot.columns]
                 pivot = pivot[cols]
+                # 0점 = 표의 문제 칸 중 0인 칸 수 (미제출·채점 전·0점·오답 모두 포함)
+                zero_counts = (pivot[cols] == 0).sum(axis=1)
                 pivot.insert(0, "합계", pivot.sum(axis=1))
-                # 0점 = 문제별 최신 채점 결과가 0점이거나 오답 처리된 문제 (미제출·채점 전은 제외)
-                zero_counts = {}
-                for (name, _), v in best.items():
-                    zero_counts[name] = zero_counts.get(name, 0) + (v["score"] == 0)
-                pivot.insert(0, "0점", pivot.index.map(lambda n: zero_counts.get(n, 0)))
+                pivot.insert(0, "0점", zero_counts)
                 if show_all_classes:
                     pivot.insert(0, "반", pivot.index.map(lambda n: name_class.get(n, "")))
 
@@ -564,7 +562,7 @@ with tab_stats:
                 pivot = pivot.set_index("학생")
 
                 st.markdown(f"### {sel_year_stats} · {sel_gc_stats} · {sel_subject_stats} 학생별 점수 현황")
-                st.caption("0점: 문제별 최신 채점 결과가 0점이거나 오답 처리된 문제 수 (미제출·채점 전 문제는 세지 않아요)")
+                st.caption(f"0점: 표에 있는 문제 {len(cols)}개 중 0인 칸 수 (미제출·채점 전·0점·오답 처리 모두 포함)")
                 row_h = 35
                 tbl_h = 38 + len(pivot) * row_h
                 num_cols = {
