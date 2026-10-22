@@ -6,6 +6,7 @@ import html
 import extra_streamlit_components as stx
 from problem_data import SUBJECTS
 from code_replay import code_recorder
+from ui_helpers import scroll_to_top_button
 
 st.set_page_config(page_title="과제 제출", page_icon="📝", layout="centered")
 
@@ -67,6 +68,8 @@ label { color: #555 !important; }
 header[data-testid="stHeader"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
+
+scroll_to_top_button()
 
 st.markdown(f"""
 <div style="display:flex; justify-content:space-between; align-items:center;

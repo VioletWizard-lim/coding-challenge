@@ -6,6 +6,7 @@ import streamlit.components.v1 as components
 from problem_data import SUBJECTS
 from code_replay import show_replay, summarize_log, valid_entries
 from db_utils import fetch_all
+from ui_helpers import scroll_to_top_button
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -97,6 +98,8 @@ label { color: #555 !important; }
 header[data-testid="stHeader"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
+
+scroll_to_top_button()
 
 # ── 헤더 ──────────────────────────────────────────────────
 col_title, col1, col2, col3 = st.columns([4, 1.2, 1.2, 1.2])
