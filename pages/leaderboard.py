@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from problem_data import SUBJECTS
 from db_utils import fetch_all
+from ui_helpers import scroll_to_top_button
 
 st.set_page_config(page_title="실시간 랭킹", page_icon="🏆", layout="centered")
 
@@ -49,6 +50,8 @@ section[data-testid="stSidebar"] { display: none !important; }
 .empty-msg { text-align: center; color: #aaa; padding: 60px 0; font-size: 1.1rem; }
 </style>
 """, unsafe_allow_html=True)
+
+scroll_to_top_button()
 
 st.markdown('<div class="lb-title">🏆 실시간 코딩 랭킹 🏆</div>', unsafe_allow_html=True)
 
