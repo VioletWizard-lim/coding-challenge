@@ -182,23 +182,27 @@ def load_edit_log(submission_id):
 
 @st.fragment(run_every=15)
 def notify_new_submissions():
+    # 마지막으로 본 제출 시각보다 나중에 들어온 것만 새 제출로 봄.
+    # (최근 N건 목록을 비교하면, 삭제로 빈자리에 예전 제출물이 밀려 들어올 때 새 제출로 잘못 알렸음)
     try:
-        res = supabase.table("submissions") \
-            .select("id, name, problem") \
-            .order("submitted_at", desc=True) \
-            .limit(100) \
-            .execute()
-        current_ids = {r["id"] for r in res.data}
-
-        if st.session_state.get("known_submission_ids") is None:
-            st.session_state.known_submission_ids = current_ids
-        else:
-            new_subs = [r for r in res.data if r["id"] not in st.session_state.known_submission_ids]
-            for sub in new_subs:
-                st.toast(f"📬 {sub['name']} — {sub['problem']} 제출!", icon="🔔")
-            if new_subs:
-                st.session_state.known_submission_ids = current_ids
-                st.cache_data.clear()
+        last_seen = st.session_state.get("last_seen_submitted_at")
+        if last_seen is None:
+            res = supabase.table("submissions") \
+                .select("submitted_at") \
+                .order("submitted_at", desc=True) \
+                .limit(1) \
+                .execute()
+            st.session_state.last_seen_submitted_at = res.data[0]["submitted_at"] if res.data else ""
+            return
+        query = supabase.table("submissions").select("name, problem, submitted_at")
+        if last_seen:
+            query = query.gt("submitted_at", last_seen)
+        new_subs = query.order("submitted_at").limit(50).execute().data
+        for sub in new_subs:
+            st.toast(f"📬 {sub['name']} — {sub['problem']} 제출!", icon="🔔")
+        if new_subs:
+            st.session_state.last_seen_submitted_at = new_subs[-1]["submitted_at"]
+            st.cache_data.clear()
     except:
         pass
 
