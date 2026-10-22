@@ -3,6 +3,7 @@ from supabase import create_client
 import time
 from datetime import datetime
 from problem_data import SUBJECTS
+from db_utils import fetch_all
 
 st.set_page_config(page_title="실시간 랭킹", page_icon="🏆", layout="centered")
 
@@ -53,22 +54,21 @@ st.markdown('<div class="lb-title">🏆 실시간 코딩 랭킹 🏆</div>', uns
 
 def load_leaderboard(subject, year, grade=None, class_=None):
     try:
-        query = supabase.table("submissions") \
-            .select("name, problem, score_total, submitted_at, grade, class") \
-            .eq("subject", subject) \
-            .eq("year", year) \
-            .gt("score_total", 0)
-
-        if grade:
-            query = query.eq("grade", grade)
-        if class_:
-            query = query.eq("class", class_)
-
-        res = query.execute()
+        def make_query():
+            query = supabase.table("submissions") \
+                .select("name, problem, score_total, submitted_at, grade, class") \
+                .eq("subject", subject) \
+                .eq("year", year) \
+                .gt("score_total", 0)
+            if grade:
+                query = query.eq("grade", grade)
+            if class_:
+                query = query.eq("class", class_)
+            return query.order("id")
 
         # 학생별, 문제별 최신 채점만 반영
         best = {}  # {name: {problem: {score, at}}}
-        for row in res.data:
+        for row in fetch_all(make_query):
             name = row["name"]
             problem = row["problem"]
             at = row["submitted_at"]
@@ -93,15 +93,15 @@ def load_leaderboard(subject, year, grade=None, class_=None):
 
 def load_classes(subject, year):
     try:
-        res = supabase.table("submissions") \
-            .select("grade, class") \
-            .eq("subject", subject) \
-            .eq("year", year) \
-            .gt("score_total", 0) \
-            .execute()
+        data = fetch_all(lambda: supabase.table("submissions")
+                         .select("grade, class")
+                         .eq("subject", subject)
+                         .eq("year", year)
+                         .gt("score_total", 0)
+                         .order("id"))
         seen = set()
         result = []
-        for row in res.data:
+        for row in data:
             g = row.get("grade") or ""
             c = row.get("class") or ""
             if g and c:
@@ -116,8 +116,8 @@ def load_classes(subject, year):
 
 def load_years():
     try:
-        res = supabase.table("submissions").select("year").gt("score_total", 0).execute()
-        years = sorted({row["year"] for row in res.data if row.get("year")}, reverse=True)
+        data = fetch_all(lambda: supabase.table("submissions").select("year").gt("score_total", 0).order("id"))
+        years = sorted({row["year"] for row in data if row.get("year")}, reverse=True)
         return years
     except:
         return []

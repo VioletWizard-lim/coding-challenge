@@ -5,6 +5,7 @@ import extra_streamlit_components as stx
 import streamlit.components.v1 as components
 from problem_data import SUBJECTS
 from code_replay import show_replay, summarize_log, valid_entries
+from db_utils import fetch_all
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
 
@@ -140,23 +141,22 @@ SUBMISSION_COLUMNS = (
 
 @st.cache_data(ttl=3600)
 def load_submissions():
-    res = supabase.table("submissions") \
-        .select(SUBMISSION_COLUMNS) \
-        .order("submitted_at", desc=True) \
-        .execute()
-    return res.data
+    return fetch_all(lambda: supabase.table("submissions")
+                     .select(SUBMISSION_COLUMNS)
+                     .order("submitted_at", desc=True)
+                     .order("id"))
 
 @st.cache_data(ttl=600)
 def load_writing_stats(subject, year):
     """작성 기록이 있는 제출물만 불러와 요약 통계로 바꿔서 반환 (기록 원본은 캐시에 남기지 않음)."""
-    res = supabase.table("submissions") \
-        .select("id, name, problem, grade, class, submitted_at, score_total, edit_log") \
-        .eq("subject", subject) \
-        .eq("year", year) \
-        .not_.is_("edit_log", "null") \
-        .execute()
+    data = fetch_all(lambda: supabase.table("submissions")
+                     .select("id, name, problem, grade, class, submitted_at, score_total, edit_log")
+                     .eq("subject", subject)
+                     .eq("year", year)
+                     .not_.is_("edit_log", "null")
+                     .order("id"), page_size=200)  # 기록이 커서 작게 나눠 받음
     rows = []
-    for r in res.data:
+    for r in data:
         s = summarize_log(r.get("edit_log"))
         if s:
             rows.append({k: r.get(k) for k in ("id", "name", "problem", "grade", "class", "submitted_at", "score_total")} | s)
@@ -164,14 +164,14 @@ def load_writing_stats(subject, year):
 
 def load_raw_logs(subject, year, ids):
     """원본 로그 CSV용: 지정한 제출물들의 edit_log 원본 (캐시하지 않음)."""
-    res = supabase.table("submissions") \
-        .select("id, edit_log") \
-        .eq("subject", subject) \
-        .eq("year", year) \
-        .not_.is_("edit_log", "null") \
-        .execute()
+    data = fetch_all(lambda: supabase.table("submissions")
+                     .select("id, edit_log")
+                     .eq("subject", subject)
+                     .eq("year", year)
+                     .not_.is_("edit_log", "null")
+                     .order("id"), page_size=200)
     wanted = set(ids)
-    return {r["id"]: r.get("edit_log") for r in res.data if r["id"] in wanted}
+    return {r["id"]: r.get("edit_log") for r in data if r["id"] in wanted}
 
 def load_edit_log(submission_id):
     res = supabase.table("submissions") \
@@ -476,12 +476,12 @@ with tab_stats:
     import pandas as pd
 
     try:
-        res = supabase.table("submissions") \
-            .select("name, problem, subject, score_total, wrong_reason, submitted_at, grade, class, year") \
-            .or_("score_total.not.is.null,wrong_reason.not.is.null") \
-            .execute()
+        data = fetch_all(lambda: supabase.table("submissions")
+                         .select("name, problem, subject, score_total, wrong_reason, submitted_at, grade, class, year")
+                         .or_("score_total.not.is.null,wrong_reason.not.is.null")
+                         .order("id"))
         # 채점됨(0점 포함) 또는 오답 처리된 제출물 (오답 이유가 빈 문자열이면 오답 아님으로 봄)
-        raw = [r for r in res.data if r.get("score_total") is not None or r.get("wrong_reason")]
+        raw = [r for r in data if r.get("score_total") is not None or r.get("wrong_reason")]
     except Exception as e:
         st.error(f"데이터 로드 오류: {e}")
         raw = []
