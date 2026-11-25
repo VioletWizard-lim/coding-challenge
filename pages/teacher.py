@@ -6,6 +6,7 @@ import streamlit.components.v1 as components
 from problem_data import SUBJECTS
 from code_replay import show_replay, summarize_log, valid_entries
 from db_utils import fetch_all
+from auth_utils import hash_password
 from ui_helpers import scroll_to_top_button
 
 st.set_page_config(page_title="채점 관리", page_icon="👨‍🏫", layout="wide")
@@ -784,8 +785,9 @@ with tab_teacher:
                 st.warning("모든 항목을 입력하세요.")
             else:
                 try:
+                    # 평문 비밀번호는 저장하지 않고 V2와 같은 bcrypt 해시로 저장
                     supabase.table("users").insert({
-                        "id": new_id, "password": new_pw,
+                        "id": new_id, "password": "", "password_hash": hash_password(new_pw),
                         "name": new_name, "role": "teacher"
                     }).execute()
                     st.success(f"✅ '{new_name}' 선생님 계정이 추가되었습니다!")

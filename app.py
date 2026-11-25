@@ -3,6 +3,7 @@ from supabase import create_client
 from datetime import datetime, timedelta
 import extra_streamlit_components as stx
 import json
+from auth_utils import check_password, strip_secrets
 
 st.set_page_config(
     page_title="파이썬 코딩 챌린지",
@@ -21,14 +22,17 @@ supabase = get_supabase()
 cookie_manager = stx.CookieManager(key="app_cookies")
 
 def login(user_id, password, role):
+    # 비밀번호는 DB 조건으로 비교하지 않고 password_hash(bcrypt)로 확인
     try:
         res = supabase.table("users") \
             .select("*") \
             .eq("id", user_id) \
-            .eq("password", password) \
             .eq("role", role) \
             .execute()
-        return res.data[0] if res.data else None
+        for row in res.data:
+            if check_password(row, password):
+                return strip_secrets(row)
+        return None
     except Exception as e:
         st.error(f"DB 연결 오류: {e}")
         return None
@@ -48,7 +52,7 @@ if not st.session_state.user:
             data = json.loads(saved)
             res = supabase.table("users").select("*").eq("id", data["id"]).execute()
             if res.data:
-                st.session_state.user = res.data[0]
+                st.session_state.user = strip_secrets(res.data[0])
                 st.rerun()
         except:
             pass
